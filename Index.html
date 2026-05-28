@@ -1,126 +1,498 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CSM Wise Ticket Summary</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 20px; }
+import { useState, useEffect, useRef, useMemo } from "react";
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-  .header { background: linear-gradient(135deg, #0f3460, #16213e); color: white; border-radius: 12px; padding: 18px 24px; margin-bottom: 18px; }
-  .header h2 { font-size: 20px; font-weight: 700; }
-  .header p { font-size: 13px; opacity: 0.75; margin-top: 5px; }
+const COLORS = {
+  Open: "#f59e0b", Closed: "#10b981", "In Progress": "#06b6d4",
+  Pending: "#3b82f6", Escalated: "#f43f5e",
+};
+const CAT_COLORS = ["#3b82f6","#06b6d4","#a78bfa","#f59e0b","#10b981","#f43f5e","#ec4899"];
 
-  .totals { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
-  .tot-card { background: white; border-radius: 10px; padding: 14px 20px; flex: 1; min-width: 130px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
-  .tot-card .num { font-size: 30px; font-weight: 800; color: #0f3460; }
-  .tot-card .lbl { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+const today = new Date().toISOString().split("T")[0];
+const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+const d2 = new Date(Date.now() - 172800000).toISOString().split("T")[0];
+const d3 = new Date(Date.now() - 259200000).toISOString().split("T")[0];
 
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  thead { background: #0f3460; color: white; }
-  thead th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; }
-  tbody tr { border-bottom: 1px solid #f0f0f0; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: #f7f9ff; }
-  tbody td { padding: 11px 16px; font-size: 13px; vertical-align: middle; }
-  tfoot td { padding: 12px 16px; font-weight: 700; background: #f8faff; border-top: 2px solid #0f3460; font-size: 13px; }
-
-  .rank { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; }
-  .r1 { background: #f59e0b; }
-  .r2 { background: #94a3b8; }
-  .r3 { background: #cd7c47; }
-  .rn { background: #e2e8f0; color: #475569; }
-
-  .csm-name { font-weight: 600; font-size: 14px; }
-  .bar-wrap { display: flex; align-items: center; gap: 10px; }
-  .bar-bg { flex: 1; max-width: 180px; height: 10px; border-radius: 5px; background: #e8ecf0; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #0f3460, #e94560); }
-  .bar-val { font-size: 13px; font-weight: 700; color: #0f3460; min-width: 45px; }
-
-  .ticket-pills { display: flex; flex-wrap: wrap; gap: 5px; }
-  .tp { background: #e8f0fe; color: #1a56db; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 600; font-family: monospace; }
-
-  .pct { font-size: 12px; color: #666; background: #f0f2f5; padding: 2px 8px; border-radius: 10px; }
-</style>
-</head>
-<body>
-
-<div class="header">
-  <h2>👤 CSM-Wise Ticket Assignment Report</h2>
-  <p>Column K (CSM Name) × Column A (Ticket No.) — Unique tickets & total rows per CSM</p>
-</div>
-
-<div class="totals">
-  <div class="tot-card"><div class="num">7,465</div><div class="lbl">Total Rows</div></div>
-  <div class="tot-card"><div class="num">50</div><div class="lbl">Unique Tickets</div></div>
-  <div class="tot-card"><div class="num">13</div><div class="lbl">Total CSMs</div></div>
-  <div class="tot-card"><div class="num">574</div><div class="lbl">Avg Rows / CSM</div></div>
-</div>
-
-<table>
-  <thead>
-    <tr>
-      <th style="width:50px">Rank</th>
-      <th>CSM Name</th>
-      <th style="width:130px">Unique Tickets</th>
-      <th style="width:240px">Total Rows</th>
-      <th style="width:90px">% of Total</th>
-      <th>Ticket Numbers (Column A)</th>
-    </tr>
-  </thead>
-  <tbody id="tbody">
-  </tbody>
-  <tfoot>
-    <tr>
-      <td colspan="2">GRAND TOTAL</td>
-      <td>50 unique</td>
-      <td>7,465 rows</td>
-      <td>100%</td>
-      <td></td>
-    </tr>
-  </tfoot>
-</table>
-
-<script>
-const DATA = [
-  { csm:"Abhijeet",         totalRows:1751, tickets:["14914","15058","15092","15273","15813","16249"] },
-  { csm:"Zeeshana",         totalRows:1551, tickets:["14486","14501","15209","15212","15266","15703","15731","15805","15817","16208","16443"] },
-  { csm:"Prabha",           totalRows:1495, tickets:["14307","14347","15024","15453"] },
-  { csm:"Manpreet Kaur",    totalRows:435,  tickets:["14584","14599","14911","15151","15395"] },
-  { csm:"Jaspreet",         totalRows:335,  tickets:["14499","14526","14646","14753","14770","15072","16615"] },
-  { csm:"Puneet Sharma",    totalRows:248,  tickets:["15206"] },
-  { csm:"Vishal",           totalRows:205,  tickets:["14217","15374"] },
-  { csm:"Jaspreet Kaur",    totalRows:124,  tickets:["14354"] },
-  { csm:"Manpreet",         totalRows:67,   tickets:["14304"] },
-  { csm:"Vedant Choudhary", totalRows:44,   tickets:["15083"] },
-  { csm:"Dexter David",     totalRows:33,   tickets:["14662"] },
-  { csm:"Ankur",            totalRows:28,   tickets:["14912"] },
-  { csm:"Vishal Singh",     totalRows:18,   tickets:["14590"] },
+const SAMPLE = [
+  { ticketNo:"TKT-001", date:today, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"1HGBH41JXMN109186", category:"Inspection", status:"Open", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"Pending parts" },
+  { ticketNo:"TKT-002", date:today, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"2T1BURHE0JC037697", category:"Repair", status:"Closed", doneBy:"Mike", csm:"Sarah", reviewThrough:"Phone", remarks:"Completed" },
+  { ticketNo:"TKT-003", date:today, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Southside", rooftopId:"RT-002", vin:"3VWFE21C04M000001", category:"Service", status:"In Progress", doneBy:"Lisa", csm:"Tom", reviewThrough:"Portal", remarks:"" },
+  { ticketNo:"TKT-004", date:today, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Westpark", rooftopId:"RT-003", vin:"4T1BF3EK8AU561234", category:"Warranty", status:"Escalated", doneBy:"John", csm:"Tom", reviewThrough:"Email", remarks:"Escalated to mgmt" },
+  { ticketNo:"TKT-005", date:yesterday, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"5FNRL5H63CB069420", category:"Recall", status:"Closed", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"Recall complete" },
+  { ticketNo:"TKT-006", date:yesterday, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"East Branch", rooftopId:"RT-004", vin:"1FTFW1ETXAFC12345", category:"Inspection", status:"Closed", doneBy:"Amy", csm:"Kevin", reviewThrough:"Chat", remarks:"" },
+  { ticketNo:"TKT-007", date:yesterday, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"East Branch", rooftopId:"RT-004", vin:"2HGFB2F57CH548923", category:"Service", status:"Pending", doneBy:"Amy", csm:"Kevin", reviewThrough:"Phone", remarks:"Awaiting customer" },
+  { ticketNo:"TKT-008", date:today, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"West Branch", rooftopId:"RT-005", vin:"3C3CFFBR0ET194827", category:"Repair", status:"Open", doneBy:"Sam", csm:"Kevin", reviewThrough:"Portal", remarks:"New issue" },
+  { ticketNo:"TKT-009", date:d2, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"South Branch", rooftopId:"RT-006", vin:"5YJSA1H10FFP75533", category:"Inspection", status:"Closed", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"" },
+  { ticketNo:"TKT-010", date:d2, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Northgate", rooftopId:"RT-007", vin:"WBA3A5G52ENP26094", category:"Repair", status:"Closed", doneBy:"Lisa", csm:"Tom", reviewThrough:"Phone", remarks:"" },
+  { ticketNo:"TKT-011", date:d3, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"West Branch", rooftopId:"RT-005", vin:"1G1ZB5ST9GF285452", category:"Service", status:"Open", doneBy:"Sam", csm:"Kevin", reviewThrough:"Portal", remarks:"Needs follow-up" },
+  { ticketNo:"TKT-012", date:today, enterprise:"Sonic Auto", enterpriseId:"ENT-004", rooftop:"Main St", rooftopId:"RT-008", vin:"3FA6P0HD5GR376657", category:"Warranty", status:"Pending", doneBy:"Eric", csm:"Dana", reviewThrough:"Email", remarks:"" },
 ];
 
-const GRAND = 7465;
-const MAX = DATA[0].totalRows;
+const s = {
+  wrap: { fontFamily:"'DM Sans',sans-serif", background:"#0b0f1a", color:"#e2e8f0", minHeight:"100vh", padding:"0" },
+  inner: { maxWidth:1380, margin:"0 auto", padding:"20px 16px" },
+  header: { display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:18, marginBottom:22, borderBottom:"1px solid #1f2d45" },
+  logo: { display:"flex", alignItems:"center", gap:12 },
+  logoIcon: { width:38, height:38, borderRadius:10, background:"linear-gradient(135deg,#3b82f6,#06b6d4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 },
+  h1: { fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, letterSpacing:"-0.5px" },
+  h1span: { color:"#3b82f6" },
+  sub: { fontSize:11, color:"#64748b", marginTop:2 },
+  clock: { fontFamily:"monospace", fontSize:12, color:"#64748b", background:"#111827", border:"1px solid #1f2d45", padding:"5px 14px", borderRadius:20 },
+  btnRow: { display:"flex", gap:8, alignItems:"center" },
+  btnPrimary: { padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", background:"#3b82f6", color:"#fff", fontSize:13, fontWeight:500 },
+  btnGhost: { padding:"7px 16px", borderRadius:8, border:"1px solid #1f2d45", cursor:"pointer", background:"#111827", color:"#e2e8f0", fontSize:13, fontWeight:500 },
+  tabs: { display:"flex", gap:4, marginBottom:20, background:"#111827", padding:4, borderRadius:10, width:"fit-content" },
+  tab: { padding:"6px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontWeight:500, color:"#64748b", border:"none", background:"transparent" },
+  tabActive: { padding:"6px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontWeight:500, color:"#fff", background:"#3b82f6", border:"none" },
+  filters: { display:"flex", gap:10, marginBottom:20, flexWrap:"wrap", alignItems:"flex-end" },
+  filterGroup: { display:"flex", flexDirection:"column", gap:4 },
+  filterLabel: { fontSize:10, fontFamily:"monospace", color:"#64748b", textTransform:"uppercase", letterSpacing:1 },
+  input: { background:"#111827", border:"1px solid #1f2d45", color:"#e2e8f0", padding:"6px 10px", borderRadius:7, fontSize:13, outline:"none", minWidth:130 },
+  kpiGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12, marginBottom:20 },
+  kpiCard: (c) => ({ background:"#111827", border:"1px solid #1f2d45", borderRadius:12, padding:"15px 17px", position:"relative", overflow:"hidden", borderTop:`3px solid ${c}` }),
+  kpiLabel: { fontSize:10, color:"#64748b", fontFamily:"monospace", textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 },
+  kpiValue: (c) => ({ fontFamily:"'Syne',sans-serif", fontSize:28, fontWeight:800, lineHeight:1, marginBottom:4, color:c }),
+  kpiSub: { fontSize:11, color:"#64748b" },
+  chartsRow: { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:20 },
+  chartCard: { background:"#111827", border:"1px solid #1f2d45", borderRadius:12, padding:"16px 18px" },
+  chartTitle: { fontFamily:"'Syne',sans-serif", fontSize:13, fontWeight:700, marginBottom:12, color:"#e2e8f0" },
+  twoCol: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 },
+  section: { background:"#111827", border:"1px solid #1f2d45", borderRadius:12, overflow:"hidden", marginBottom:20 },
+  sectionHead: { padding:"13px 18px", borderBottom:"1px solid #1f2d45", display:"flex", alignItems:"center", justifyContent:"space-between" },
+  sectionTitle: { fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700 },
+  badge: { background:"rgba(59,130,246,0.15)", color:"#3b82f6", padding:"2px 10px", borderRadius:20, fontSize:11, fontFamily:"monospace" },
+  table: { width:"100%", borderCollapse:"collapse", fontSize:12 },
+  th: { padding:"8px 12px", textAlign:"left", fontSize:10, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:0.8, color:"#64748b", background:"#1a2235", whiteSpace:"nowrap" },
+  td: { padding:"9px 12px", borderBottom:"1px solid #1a2235", whiteSpace:"nowrap" },
+  pill: (s) => ({ padding:"2px 9px", borderRadius:20, fontSize:11, fontWeight:500, background: s==="Closed"?"rgba(16,185,129,0.15)":s==="Open"?"rgba(245,158,11,0.15)":s==="Escalated"?"rgba(244,63,94,0.15)":s==="Pending"?"rgba(59,130,246,0.15)":"rgba(6,182,212,0.15)", color: s==="Closed"?"#10b981":s==="Open"?"#f59e0b":s==="Escalated"?"#f43f5e":s==="Pending"?"#3b82f6":"#06b6d4" }),
+  progressItem: { marginBottom:10 },
+  progressLabel: { display:"flex", justifyContent:"space-between", fontSize:12, color:"#94a3b8", marginBottom:5 },
+  progressBar: { height:6, background:"#1f2d45", borderRadius:3, overflow:"hidden" },
+  modal: { position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" },
+  modalBox: { background:"#111827", border:"1px solid #1f2d45", borderRadius:14, padding:26, width:"90%", maxWidth:680, maxHeight:"88vh", overflowY:"auto" },
+  formGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 },
+  formGroup: { display:"flex", flexDirection:"column", gap:5 },
+  formLabel: { fontSize:10, fontFamily:"monospace", color:"#64748b", textTransform:"uppercase", letterSpacing:0.8 },
+  textarea: { background:"#1a2235", border:"1px solid #1f2d45", color:"#e2e8f0", padding:"8px 12px", borderRadius:7, fontSize:12, fontFamily:"monospace", resize:"vertical", minHeight:70, outline:"none", width:"100%" },
+};
 
-document.getElementById('tbody').innerHTML = DATA.map((d, i) => {
-  const rc = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'rn';
-  const pct = ((d.totalRows / GRAND) * 100).toFixed(1);
-  const barW = Math.round((d.totalRows / MAX) * 100);
-  const pills = d.tickets.map(t => `<span class="tp">${t}</span>`).join('');
-  return `<tr>
-    <td><span class="rank ${rc}">${i+1}</span></td>
-    <td><span class="csm-name">${d.csm}</span></td>
-    <td style="font-weight:800;font-size:16px;color:#0f3460;text-align:center">${d.tickets.length}</td>
-    <td>
-      <div class="bar-wrap">
-        <div class="bar-bg"><div class="bar-fill" style="width:${barW}%"></div></div>
-        <span class="bar-val">${d.totalRows.toLocaleString()}</span>
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background:"#1a2235", border:"1px solid #1f2d45", borderRadius:8, padding:"8px 14px", fontSize:12 }}>
+      <div style={{ color:"#94a3b8", marginBottom:4 }}>{label}</div>
+      {payload.map((p,i) => <div key={i} style={{ color:p.color||"#e2e8f0" }}>{p.value}</div>)}
+    </div>
+  );
+};
+
+export default function App() {
+  const [tickets, setTickets] = useState(SAMPLE);
+  const [tab, setTab] = useState("dashboard");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const [fCategory, setFCategory] = useState("");
+  const [fEnterprise, setFEnterprise] = useState("");
+  const [fSearch, setFSearch] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [pasteData, setPasteData] = useState("");
+  const [clock, setClock] = useState("");
+  const [form, setForm] = useState({ ticketNo:"", date:today, enterprise:"", enterpriseId:"", rooftop:"", rooftopId:"", vin:"", category:"", status:"Open", doneBy:"", csm:"", reviewThrough:"", remarks:"" });
+
+  useEffect(() => {
+    const tick = () => {
+      const n = new Date();
+      setClock(n.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}) + " · " + n.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}));
+    };
+    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
+  }, []);
+
+  const filtered = useMemo(() => tickets.filter(t => {
+    if (fFrom && t.date < fFrom) return false;
+    if (fTo && t.date > fTo) return false;
+    if (fStatus && t.status !== fStatus) return false;
+    if (fCategory && t.category !== fCategory) return false;
+    if (fEnterprise && t.enterprise !== fEnterprise) return false;
+    if (fSearch && !JSON.stringify(t).toLowerCase().includes(fSearch.toLowerCase())) return false;
+    return true;
+  }), [tickets, fFrom, fTo, fStatus, fCategory, fEnterprise, fSearch]);
+
+  const cats = [...new Set(tickets.map(t=>t.category).filter(Boolean))];
+  const ents = [...new Set(tickets.map(t=>t.enterprise).filter(Boolean))];
+
+  // Compute stats
+  const stats = useMemo(() => {
+    const statuses = {}, categories = {}, csms = {}, enterprises = {};
+    const vins = new Set(), rooftops = new Set(), entSet = new Set();
+    const todayT = filtered.filter(t => t.date === today);
+    const todayVins = new Set();
+    filtered.forEach(t => {
+      if (t.vin) vins.add(t.vin);
+      if (t.rooftop) rooftops.add(t.rooftop);
+      if (t.enterprise) entSet.add(t.enterprise);
+      statuses[t.status] = (statuses[t.status]||0)+1;
+      if (t.category) categories[t.category] = (categories[t.category]||0)+1;
+      if (t.csm) csms[t.csm] = (csms[t.csm]||0)+1;
+      const eid = t.enterprise||"Unknown";
+      if (!enterprises[eid]) enterprises[eid] = {id:t.enterpriseId||"",tickets:0,vins:new Set(),open:0,closed:0,escalated:0};
+      enterprises[eid].tickets++;
+      if (t.vin) enterprises[eid].vins.add(t.vin);
+      if (t.status==="Open") enterprises[eid].open++;
+      if (t.status==="Closed") enterprises[eid].closed++;
+      if (t.status==="Escalated") enterprises[eid].escalated++;
+    });
+    todayT.forEach(t => { if(t.vin) todayVins.add(t.vin); });
+    // Trend last 14 days
+    const trend = [];
+    for (let i=13; i>=0; i--) {
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const ds = d.toISOString().split("T")[0];
+      trend.push({ day: ds.slice(5), count: filtered.filter(t=>t.date===ds).length });
+    }
+    return { statuses, categories, csms, enterprises, vins, rooftops, entSet, todayT, todayVins, trend };
+  }, [filtered]);
+
+  const addTicket = () => {
+    const t = { ...form, ticketNo: form.ticketNo || `TKT-${String(tickets.length+1).padStart(3,"0")}` };
+    setTickets(prev => [...prev, t]);
+    setForm({ ticketNo:"", date:today, enterprise:"", enterpriseId:"", rooftop:"", rooftopId:"", vin:"", category:"", status:"Open", doneBy:"", csm:"", reviewThrough:"", remarks:"" });
+    setShowAdd(false);
+  };
+
+  const importCSV = () => {
+    const lines = pasteData.trim().split("\n");
+    const headers = lines[0].split(",").map(h=>h.trim().toLowerCase());
+    const fieldMap = {
+      ticketNo:["ticket no","ticket_no","ticketno"], date:["date"],
+      enterprise:["enterprise name","enterprise_name","enterprise"],
+      enterpriseId:["enterprise id","enterprise_id","enterpriseid"],
+      rooftop:["rooftop"], rooftopId:["rooftop id","rooftop_id","rooftopid"],
+      vin:["stock/vin","vin","stock"], category:["category","catagory"],
+      status:["status"], doneBy:["done by","done_by","doneby"],
+      csm:["csm"], reviewThrough:["review through","review_through"], remarks:["remarks"],
+    };
+    const idx = {};
+    Object.entries(fieldMap).forEach(([field, aliases]) => {
+      for (const a of aliases) { const i = headers.indexOf(a); if (i!==-1){idx[field]=i;break;} }
+    });
+    const newT = [];
+    for (let i=1;i<lines.length;i++) {
+      if (!lines[i].trim()) continue;
+      const cols = lines[i].split(",");
+      const t = {};
+      Object.entries(idx).forEach(([f,ci]) => { t[f] = (cols[ci]||"").trim(); });
+      if (t.ticketNo||t.vin||t.date) newT.push(t);
+    }
+    setTickets(prev => [...prev, ...newT]);
+    setPasteData(""); setShowImport(false);
+  };
+
+  const KPI = ({label, value, sub, color}) => (
+    <div style={s.kpiCard(color)}>
+      <div style={s.kpiLabel}>{label}</div>
+      <div style={s.kpiValue(color)}>{value}</div>
+      <div style={s.kpiSub}>{sub}</div>
+    </div>
+  );
+
+  const ProgressBar = ({label, count, total, color}) => (
+    <div style={s.progressItem}>
+      <div style={s.progressLabel}><span>{label}</span><span style={{color:"#94a3b8"}}>{count} ({total?Math.round(count/total*100):0}%)</span></div>
+      <div style={s.progressBar}><div style={{height:"100%",borderRadius:3,background:color,width:`${total?Math.round(count/total*100):0}%`,transition:"width 0.6s ease"}}></div></div>
+    </div>
+  );
+
+  const total = filtered.length;
+  const closed = stats.statuses["Closed"]||0;
+  const open = (stats.statuses["Open"]||0)+(stats.statuses["In Progress"]||0)+(stats.statuses["Pending"]||0);
+  const escalated = stats.statuses["Escalated"]||0;
+
+  const statusPieData = Object.entries(stats.statuses).map(([name,value])=>({name,value}));
+  const catBarData = Object.entries(stats.categories).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value).slice(0,7);
+  const csmBarData = Object.entries(stats.csms).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([name,value])=>({name,value}));
+  const entRows = Object.entries(stats.enterprises).sort((a,b)=>b[1].tickets-a[1].tickets);
+
+  const todayData = stats.todayT;
+
+  return (
+    <div style={s.wrap}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+      <div style={s.inner}>
+        {/* HEADER */}
+        <div style={s.header}>
+          <div style={s.logo}>
+            <div style={s.logoIcon}>🎫</div>
+            <div>
+              <div style={s.h1}>Ticket <span style={s.h1span}>Dashboard</span></div>
+              <div style={s.sub}>Daily Tracking · Ticket Tab</div>
+            </div>
+          </div>
+          <div style={s.btnRow}>
+            <div style={s.clock}>{clock}</div>
+            <button style={s.btnGhost} onClick={()=>setShowImport(true)}>⬆ Import CSV</button>
+            <button style={s.btnPrimary} onClick={()=>setShowAdd(true)}>+ Add Ticket</button>
+          </div>
+        </div>
+
+        {/* TABS */}
+        <div style={s.tabs}>
+          {["dashboard","table","daily"].map(t => (
+            <button key={t} style={tab===t?s.tabActive:s.tab} onClick={()=>setTab(t)}>
+              {t==="dashboard"?"📊 Dashboard":t==="table"?"📋 All Tickets":"📅 Daily View"}
+            </button>
+          ))}
+        </div>
+
+        {/* FILTERS */}
+        <div style={s.filters}>
+          {[["From",<input type="date" style={s.input} value={fFrom} onChange={e=>setFFrom(e.target.value)}/>],
+            ["To",<input type="date" style={s.input} value={fTo} onChange={e=>setFTo(e.target.value)}/>],
+            ["Status",<select style={s.input} value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="">All Statuses</option>{["Open","Closed","Pending","In Progress","Escalated"].map(s=><option key={s}>{s}</option>)}</select>],
+            ["Category",<select style={s.input} value={fCategory} onChange={e=>setFCategory(e.target.value)}><option value="">All Categories</option>{cats.map(c=><option key={c}>{c}</option>)}</select>],
+            ["Enterprise",<select style={s.input} value={fEnterprise} onChange={e=>setFEnterprise(e.target.value)}><option value="">All Enterprises</option>{ents.map(e=><option key={e}>{e}</option>)}</select>],
+            ["Search VIN/Ticket",<input style={{...s.input,minWidth:170}} placeholder="Search..." value={fSearch} onChange={e=>setFSearch(e.target.value)}/>],
+          ].map(([label,el]) => (
+            <div key={label} style={s.filterGroup}>
+              <span style={s.filterLabel}>{label}</span>{el}
+            </div>
+          ))}
+          <div style={s.filterGroup}>
+            <span style={s.filterLabel}>&nbsp;</span>
+            <button style={{...s.btnGhost,height:34}} onClick={()=>{setFFrom("");setFTo("");setFStatus("");setFCategory("");setFEnterprise("");setFSearch("");}}>Reset</button>
+          </div>
+        </div>
+
+        {/* ── DASHBOARD ── */}
+        {tab==="dashboard" && <>
+          {/* KPIs */}
+          <div style={s.kpiGrid}>
+            <KPI label="Total Tickets" value={total} sub={`${stats.vins.size} unique VINs`} color="#3b82f6"/>
+            <KPI label="Unique VINs" value={stats.vins.size} sub="Distinct stock" color="#06b6d4"/>
+            <KPI label="Closed" value={closed} sub={total?`${Math.round(closed/total*100)}% closure rate`:"—"} color="#10b981"/>
+            <KPI label="Open / Active" value={open} sub={total?`${Math.round(open/total*100)}% of total`:"—"} color="#f59e0b"/>
+            <KPI label="Escalated" value={escalated} sub="Needs attention" color="#f43f5e"/>
+            <KPI label="Enterprises" value={stats.entSet.size} sub="Active" color="#a78bfa"/>
+            <KPI label="Rooftops" value={stats.rooftops.size} sub="Locations" color="#06b6d4"/>
+            <KPI label="Today's Tickets" value={stats.todayT.length} sub={`${stats.todayVins.size} VINs today`} color="#3b82f6"/>
+          </div>
+
+          {/* CHARTS */}
+          <div style={s.chartsRow}>
+            <div style={s.chartCard}>
+              <div style={s.chartTitle}>Status Breakdown</div>
+              <ResponsiveContainer width="100%" height={190}>
+                <PieChart>
+                  <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+                    {statusPieData.map((entry,i)=><Cell key={i} fill={COLORS[entry.name]||"#64748b"}/>)}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip/>}/>
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
+                {statusPieData.map(e=>(
+                  <span key={e.name} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#94a3b8"}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[e.name]||"#64748b",display:"inline-block"}}></span>{e.name} ({e.value})
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={s.chartCard}>
+              <div style={s.chartTitle}>Tickets by Category</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={catBarData} margin={{top:4,right:4,left:-20,bottom:0}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2d45"/>
+                  <XAxis dataKey="name" tick={{fill:"#64748b",fontSize:10}} />
+                  <YAxis tick={{fill:"#64748b",fontSize:10}}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="value" radius={[4,4,0,0]}>
+                    {catBarData.map((_,i)=><Cell key={i} fill={CAT_COLORS[i%CAT_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={s.chartCard}>
+              <div style={s.chartTitle}>14-Day Ticket Trend</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={stats.trend} margin={{top:4,right:4,left:-20,bottom:0}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2d45"/>
+                  <XAxis dataKey="day" tick={{fill:"#64748b",fontSize:10}}/>
+                  <YAxis tick={{fill:"#64748b",fontSize:10}} allowDecimals={false}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Line type="monotone" dataKey="count" stroke="#06b6d4" strokeWidth={2} dot={{fill:"#06b6d4",r:3}} activeDot={{r:5}}/>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* PROGRESS + CSM */}
+          <div style={s.twoCol}>
+            <div style={s.chartCard}>
+              <div style={s.chartTitle}>Status Distribution</div>
+              {[{l:"Closed",c:"#10b981"},{l:"Open",c:"#f59e0b"},{l:"In Progress",c:"#06b6d4"},{l:"Pending",c:"#3b82f6"},{l:"Escalated",c:"#f43f5e"}]
+                .map(({l,c})=><ProgressBar key={l} label={l} count={stats.statuses[l]||0} total={total} color={c}/>)}
+            </div>
+            <div style={s.chartCard}>
+              <div style={s.chartTitle}>Top CSMs by Tickets</div>
+              {csmBarData.length ? csmBarData.map(({name,value})=>(
+                <ProgressBar key={name} label={name||"Unknown"} count={value} total={csmBarData[0]?.value||1} color="#3b82f6"/>
+              )) : <div style={{color:"#64748b",fontSize:13,padding:"20px 0",textAlign:"center"}}>No CSM data yet</div>}
+            </div>
+          </div>
+
+          {/* ENTERPRISE TABLE */}
+          <div style={s.section}>
+            <div style={s.sectionHead}>
+              <div style={s.sectionTitle}>Enterprise Summary</div>
+              <span style={s.badge}>{entRows.length} enterprises</span>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={s.table}>
+                <thead><tr>{["Enterprise","Enterprise ID","Total Tickets","Unique VINs","Open","Closed","Escalated"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {entRows.length ? entRows.map(([name,e])=>(
+                    <tr key={name}>
+                      <td style={s.td}><strong>{name}</strong></td>
+                      <td style={{...s.td,color:"#64748b"}}>{e.id}</td>
+                      <td style={s.td}>{e.tickets}</td>
+                      <td style={s.td}>{e.vins.size}</td>
+                      <td style={{...s.td,color:"#f59e0b"}}>{e.open}</td>
+                      <td style={{...s.td,color:"#10b981"}}>{e.closed}</td>
+                      <td style={{...s.td,color:"#f43f5e"}}>{e.escalated}</td>
+                    </tr>
+                  )) : <tr><td colSpan={7} style={{...s.td,color:"#64748b",textAlign:"center",padding:30}}>No data</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>}
+
+        {/* ── ALL TICKETS ── */}
+        {tab==="table" && (
+          <div style={s.section}>
+            <div style={s.sectionHead}>
+              <div style={s.sectionTitle}>All Tickets</div>
+              <span style={s.badge}>{filtered.length} tickets</span>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={s.table}>
+                <thead><tr>{["#","Ticket No","Date","Enterprise","Ent. ID","Rooftop","RT ID","VIN/Stock","Category","Status","Done By","CSM","Review Through","Remarks"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filtered.length ? filtered.map((t,i)=>(
+                    <tr key={i} style={{background:i%2?"#0d1220":"transparent"}}>
+                      <td style={{...s.td,color:"#64748b"}}>{i+1}</td>
+                      <td style={s.td}><strong>{t.ticketNo||"—"}</strong></td>
+                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.date||"—"}</td>
+                      <td style={s.td}>{t.enterprise||"—"}</td>
+                      <td style={{...s.td,color:"#64748b"}}>{t.enterpriseId||"—"}</td>
+                      <td style={s.td}>{t.rooftop||"—"}</td>
+                      <td style={{...s.td,color:"#64748b"}}>{t.rooftopId||"—"}</td>
+                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.vin||"—"}</td>
+                      <td style={s.td}>{t.category||"—"}</td>
+                      <td style={s.td}><span style={s.pill(t.status)}>{t.status||"—"}</span></td>
+                      <td style={s.td}>{t.doneBy||"—"}</td>
+                      <td style={s.td}>{t.csm||"—"}</td>
+                      <td style={s.td}>{t.reviewThrough||"—"}</td>
+                      <td style={{...s.td,color:"#64748b",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis"}}>{t.remarks||"—"}</td>
+                    </tr>
+                  )) : <tr><td colSpan={14} style={{...s.td,textAlign:"center",padding:40,color:"#64748b"}}>No tickets match filters</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── DAILY VIEW ── */}
+        {tab==="daily" && <>
+          <div style={{...s.kpiGrid,gridTemplateColumns:"repeat(4,1fr)"}}>
+            <KPI label="Today's Tickets" value={todayData.length} sub="Total logged" color="#3b82f6"/>
+            <KPI label="Today's VINs" value={stats.todayVins.size} sub="Unique stocks" color="#06b6d4"/>
+            <KPI label="Closed Today" value={todayData.filter(t=>t.status==="Closed").length} sub="Resolved" color="#10b981"/>
+            <KPI label="Open Today" value={todayData.filter(t=>["Open","In Progress","Pending"].includes(t.status)).length} sub="Pending resolution" color="#f59e0b"/>
+          </div>
+          <div style={s.section}>
+            <div style={s.sectionHead}>
+              <div style={s.sectionTitle}>Today's Tickets — {today}</div>
+              <span style={s.badge}>{todayData.length} tickets</span>
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={s.table}>
+                <thead><tr>{["Ticket No","Enterprise","Rooftop","VIN/Stock","Category","Status","Done By","CSM","Remarks"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {todayData.length ? todayData.map((t,i)=>(
+                    <tr key={i}>
+                      <td style={s.td}><strong>{t.ticketNo||"—"}</strong></td>
+                      <td style={s.td}>{t.enterprise||"—"}</td>
+                      <td style={s.td}>{t.rooftop||"—"}</td>
+                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.vin||"—"}</td>
+                      <td style={s.td}>{t.category||"—"}</td>
+                      <td style={s.td}><span style={s.pill(t.status)}>{t.status||"—"}</span></td>
+                      <td style={s.td}>{t.doneBy||"—"}</td>
+                      <td style={s.td}>{t.csm||"—"}</td>
+                      <td style={{...s.td,color:"#64748b"}}>{t.remarks||"—"}</td>
+                    </tr>
+                  )) : <tr><td colSpan={9} style={{...s.td,textAlign:"center",padding:40,color:"#64748b"}}>No tickets logged for today</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>}
       </div>
-    </td>
-    <td><span class="pct">${pct}%</span></td>
-    <td><div class="ticket-pills">${pills}</div></td>
-  </tr>`;
-}).join('');
-</script>
-</body>
-</html>
+
+      {/* ADD TICKET MODAL */}
+      {showAdd && (
+        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowAdd(false)}>
+          <div style={s.modalBox}>
+            <div style={{...s.sectionTitle,fontSize:17,marginBottom:18}}>➕ Add New Ticket</div>
+            <div style={s.formGrid}>
+              {[["Ticket No","ticketNo","text","TKT-001"],["Date","date","date",""],["Enterprise Name","enterprise","text",""],["Enterprise ID","enterpriseId","text","ENT-001"],["Rooftop","rooftop","text",""],["Rooftop ID","rooftopId","text","RT-001"],["Stock / VIN","vin","text",""],["Done By","doneBy","text",""],["CSM","csm","text",""],["Review Through","reviewThrough","text",""]].map(([label,field,type,ph])=>(
+                <div key={field} style={s.formGroup}>
+                  <label style={s.formLabel}>{label}</label>
+                  <input type={type} style={s.input} placeholder={ph} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}/>
+                </div>
+              ))}
+              <div style={s.formGroup}>
+                <label style={s.formLabel}>Category</label>
+                <select style={s.input} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+                  <option value="">Select...</option>
+                  {["Inspection","Repair","Service","Recall","Warranty","Other"].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={s.formGroup}>
+                <label style={s.formLabel}>Status</label>
+                <select style={s.input} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+                  {["Open","In Progress","Pending","Closed","Escalated"].map(ss=><option key={ss}>{ss}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{...s.formGroup,marginTop:12}}>
+              <label style={s.formLabel}>Remarks</label>
+              <input style={s.input} value={form.remarks} onChange={e=>setForm(f=>({...f,remarks:e.target.value}))} placeholder="Any remarks..."/>
+            </div>
+            <div style={{display:"flex",gap:10,marginTop:18,justifyContent:"flex-end"}}>
+              <button style={s.btnGhost} onClick={()=>setShowAdd(false)}>Cancel</button>
+              <button style={s.btnPrimary} onClick={addTicket}>Save Ticket</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT MODAL */}
+      {showImport && (
+        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowImport(false)}>
+          <div style={s.modalBox}>
+            <div style={{...s.sectionTitle,fontSize:17,marginBottom:14}}>⬆ Import Tickets (CSV Paste)</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:10}}>Paste CSV data below. First row must be headers. Columns: Ticket No, Date, Enterprise Name, Enterprise ID, Rooftop, Rooftop ID, Stock/VIN, Category, Status, Done By, CSM, Review Through, Remarks</div>
+            <textarea style={s.textarea} value={pasteData} onChange={e=>setPasteData(e.target.value)} placeholder={"Ticket No,Date,Enterprise Name,...\nTKT-001,2025-05-28,ACME,..."}/>
+            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
+              <button style={s.btnGhost} onClick={()=>setShowImport(false)}>Cancel</button>
+              <button style={s.btnPrimary} onClick={importCSV}>Import</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
