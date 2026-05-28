@@ -1,498 +1,711 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-
-const COLORS = {
-  Open: "#f59e0b", Closed: "#10b981", "In Progress": "#06b6d4",
-  Pending: "#3b82f6", Escalated: "#f43f5e",
-};
-const CAT_COLORS = ["#3b82f6","#06b6d4","#a78bfa","#f59e0b","#10b981","#f43f5e","#ec4899"];
-
-const today = new Date().toISOString().split("T")[0];
-const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-const d2 = new Date(Date.now() - 172800000).toISOString().split("T")[0];
-const d3 = new Date(Date.now() - 259200000).toISOString().split("T")[0];
-
-const SAMPLE = [
-  { ticketNo:"TKT-001", date:today, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"1HGBH41JXMN109186", category:"Inspection", status:"Open", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"Pending parts" },
-  { ticketNo:"TKT-002", date:today, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"2T1BURHE0JC037697", category:"Repair", status:"Closed", doneBy:"Mike", csm:"Sarah", reviewThrough:"Phone", remarks:"Completed" },
-  { ticketNo:"TKT-003", date:today, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Southside", rooftopId:"RT-002", vin:"3VWFE21C04M000001", category:"Service", status:"In Progress", doneBy:"Lisa", csm:"Tom", reviewThrough:"Portal", remarks:"" },
-  { ticketNo:"TKT-004", date:today, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Westpark", rooftopId:"RT-003", vin:"4T1BF3EK8AU561234", category:"Warranty", status:"Escalated", doneBy:"John", csm:"Tom", reviewThrough:"Email", remarks:"Escalated to mgmt" },
-  { ticketNo:"TKT-005", date:yesterday, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"North Dallas", rooftopId:"RT-001", vin:"5FNRL5H63CB069420", category:"Recall", status:"Closed", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"Recall complete" },
-  { ticketNo:"TKT-006", date:yesterday, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"East Branch", rooftopId:"RT-004", vin:"1FTFW1ETXAFC12345", category:"Inspection", status:"Closed", doneBy:"Amy", csm:"Kevin", reviewThrough:"Chat", remarks:"" },
-  { ticketNo:"TKT-007", date:yesterday, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"East Branch", rooftopId:"RT-004", vin:"2HGFB2F57CH548923", category:"Service", status:"Pending", doneBy:"Amy", csm:"Kevin", reviewThrough:"Phone", remarks:"Awaiting customer" },
-  { ticketNo:"TKT-008", date:today, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"West Branch", rooftopId:"RT-005", vin:"3C3CFFBR0ET194827", category:"Repair", status:"Open", doneBy:"Sam", csm:"Kevin", reviewThrough:"Portal", remarks:"New issue" },
-  { ticketNo:"TKT-009", date:d2, enterprise:"AutoNation", enterpriseId:"ENT-001", rooftop:"South Branch", rooftopId:"RT-006", vin:"5YJSA1H10FFP75533", category:"Inspection", status:"Closed", doneBy:"James", csm:"Sarah", reviewThrough:"Email", remarks:"" },
-  { ticketNo:"TKT-010", date:d2, enterprise:"CarMax", enterpriseId:"ENT-002", rooftop:"Northgate", rooftopId:"RT-007", vin:"WBA3A5G52ENP26094", category:"Repair", status:"Closed", doneBy:"Lisa", csm:"Tom", reviewThrough:"Phone", remarks:"" },
-  { ticketNo:"TKT-011", date:d3, enterprise:"DriveTime", enterpriseId:"ENT-003", rooftop:"West Branch", rooftopId:"RT-005", vin:"1G1ZB5ST9GF285452", category:"Service", status:"Open", doneBy:"Sam", csm:"Kevin", reviewThrough:"Portal", remarks:"Needs follow-up" },
-  { ticketNo:"TKT-012", date:today, enterprise:"Sonic Auto", enterpriseId:"ENT-004", rooftop:"Main St", rooftopId:"RT-008", vin:"3FA6P0HD5GR376657", category:"Warranty", status:"Pending", doneBy:"Eric", csm:"Dana", reviewThrough:"Email", remarks:"" },
-];
-
-const s = {
-  wrap: { fontFamily:"'DM Sans',sans-serif", background:"#0b0f1a", color:"#e2e8f0", minHeight:"100vh", padding:"0" },
-  inner: { maxWidth:1380, margin:"0 auto", padding:"20px 16px" },
-  header: { display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:18, marginBottom:22, borderBottom:"1px solid #1f2d45" },
-  logo: { display:"flex", alignItems:"center", gap:12 },
-  logoIcon: { width:38, height:38, borderRadius:10, background:"linear-gradient(135deg,#3b82f6,#06b6d4)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 },
-  h1: { fontFamily:"'Syne',sans-serif", fontSize:20, fontWeight:800, letterSpacing:"-0.5px" },
-  h1span: { color:"#3b82f6" },
-  sub: { fontSize:11, color:"#64748b", marginTop:2 },
-  clock: { fontFamily:"monospace", fontSize:12, color:"#64748b", background:"#111827", border:"1px solid #1f2d45", padding:"5px 14px", borderRadius:20 },
-  btnRow: { display:"flex", gap:8, alignItems:"center" },
-  btnPrimary: { padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", background:"#3b82f6", color:"#fff", fontSize:13, fontWeight:500 },
-  btnGhost: { padding:"7px 16px", borderRadius:8, border:"1px solid #1f2d45", cursor:"pointer", background:"#111827", color:"#e2e8f0", fontSize:13, fontWeight:500 },
-  tabs: { display:"flex", gap:4, marginBottom:20, background:"#111827", padding:4, borderRadius:10, width:"fit-content" },
-  tab: { padding:"6px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontWeight:500, color:"#64748b", border:"none", background:"transparent" },
-  tabActive: { padding:"6px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontWeight:500, color:"#fff", background:"#3b82f6", border:"none" },
-  filters: { display:"flex", gap:10, marginBottom:20, flexWrap:"wrap", alignItems:"flex-end" },
-  filterGroup: { display:"flex", flexDirection:"column", gap:4 },
-  filterLabel: { fontSize:10, fontFamily:"monospace", color:"#64748b", textTransform:"uppercase", letterSpacing:1 },
-  input: { background:"#111827", border:"1px solid #1f2d45", color:"#e2e8f0", padding:"6px 10px", borderRadius:7, fontSize:13, outline:"none", minWidth:130 },
-  kpiGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12, marginBottom:20 },
-  kpiCard: (c) => ({ background:"#111827", border:"1px solid #1f2d45", borderRadius:12, padding:"15px 17px", position:"relative", overflow:"hidden", borderTop:`3px solid ${c}` }),
-  kpiLabel: { fontSize:10, color:"#64748b", fontFamily:"monospace", textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 },
-  kpiValue: (c) => ({ fontFamily:"'Syne',sans-serif", fontSize:28, fontWeight:800, lineHeight:1, marginBottom:4, color:c }),
-  kpiSub: { fontSize:11, color:"#64748b" },
-  chartsRow: { display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:20 },
-  chartCard: { background:"#111827", border:"1px solid #1f2d45", borderRadius:12, padding:"16px 18px" },
-  chartTitle: { fontFamily:"'Syne',sans-serif", fontSize:13, fontWeight:700, marginBottom:12, color:"#e2e8f0" },
-  twoCol: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 },
-  section: { background:"#111827", border:"1px solid #1f2d45", borderRadius:12, overflow:"hidden", marginBottom:20 },
-  sectionHead: { padding:"13px 18px", borderBottom:"1px solid #1f2d45", display:"flex", alignItems:"center", justifyContent:"space-between" },
-  sectionTitle: { fontFamily:"'Syne',sans-serif", fontSize:14, fontWeight:700 },
-  badge: { background:"rgba(59,130,246,0.15)", color:"#3b82f6", padding:"2px 10px", borderRadius:20, fontSize:11, fontFamily:"monospace" },
-  table: { width:"100%", borderCollapse:"collapse", fontSize:12 },
-  th: { padding:"8px 12px", textAlign:"left", fontSize:10, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:0.8, color:"#64748b", background:"#1a2235", whiteSpace:"nowrap" },
-  td: { padding:"9px 12px", borderBottom:"1px solid #1a2235", whiteSpace:"nowrap" },
-  pill: (s) => ({ padding:"2px 9px", borderRadius:20, fontSize:11, fontWeight:500, background: s==="Closed"?"rgba(16,185,129,0.15)":s==="Open"?"rgba(245,158,11,0.15)":s==="Escalated"?"rgba(244,63,94,0.15)":s==="Pending"?"rgba(59,130,246,0.15)":"rgba(6,182,212,0.15)", color: s==="Closed"?"#10b981":s==="Open"?"#f59e0b":s==="Escalated"?"#f43f5e":s==="Pending"?"#3b82f6":"#06b6d4" }),
-  progressItem: { marginBottom:10 },
-  progressLabel: { display:"flex", justifyContent:"space-between", fontSize:12, color:"#94a3b8", marginBottom:5 },
-  progressBar: { height:6, background:"#1f2d45", borderRadius:3, overflow:"hidden" },
-  modal: { position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center" },
-  modalBox: { background:"#111827", border:"1px solid #1f2d45", borderRadius:14, padding:26, width:"90%", maxWidth:680, maxHeight:"88vh", overflowY:"auto" },
-  formGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 },
-  formGroup: { display:"flex", flexDirection:"column", gap:5 },
-  formLabel: { fontSize:10, fontFamily:"monospace", color:"#64748b", textTransform:"uppercase", letterSpacing:0.8 },
-  textarea: { background:"#1a2235", border:"1px solid #1f2d45", color:"#e2e8f0", padding:"8px 12px", borderRadius:7, fontSize:12, fontFamily:"monospace", resize:"vertical", minHeight:70, outline:"none", width:"100%" },
-};
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background:"#1a2235", border:"1px solid #1f2d45", borderRadius:8, padding:"8px 14px", fontSize:12 }}>
-      <div style={{ color:"#94a3b8", marginBottom:4 }}>{label}</div>
-      {payload.map((p,i) => <div key={i} style={{ color:p.color||"#e2e8f0" }}>{p.value}</div>)}
-    </div>
-  );
-};
-
-export default function App() {
-  const [tickets, setTickets] = useState(SAMPLE);
-  const [tab, setTab] = useState("dashboard");
-  const [fFrom, setFFrom] = useState("");
-  const [fTo, setFTo] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const [fCategory, setFCategory] = useState("");
-  const [fEnterprise, setFEnterprise] = useState("");
-  const [fSearch, setFSearch] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [pasteData, setPasteData] = useState("");
-  const [clock, setClock] = useState("");
-  const [form, setForm] = useState({ ticketNo:"", date:today, enterprise:"", enterpriseId:"", rooftop:"", rooftopId:"", vin:"", category:"", status:"Open", doneBy:"", csm:"", reviewThrough:"", remarks:"" });
-
-  useEffect(() => {
-    const tick = () => {
-      const n = new Date();
-      setClock(n.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}) + " · " + n.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}));
-    };
-    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
-  }, []);
-
-  const filtered = useMemo(() => tickets.filter(t => {
-    if (fFrom && t.date < fFrom) return false;
-    if (fTo && t.date > fTo) return false;
-    if (fStatus && t.status !== fStatus) return false;
-    if (fCategory && t.category !== fCategory) return false;
-    if (fEnterprise && t.enterprise !== fEnterprise) return false;
-    if (fSearch && !JSON.stringify(t).toLowerCase().includes(fSearch.toLowerCase())) return false;
-    return true;
-  }), [tickets, fFrom, fTo, fStatus, fCategory, fEnterprise, fSearch]);
-
-  const cats = [...new Set(tickets.map(t=>t.category).filter(Boolean))];
-  const ents = [...new Set(tickets.map(t=>t.enterprise).filter(Boolean))];
-
-  // Compute stats
-  const stats = useMemo(() => {
-    const statuses = {}, categories = {}, csms = {}, enterprises = {};
-    const vins = new Set(), rooftops = new Set(), entSet = new Set();
-    const todayT = filtered.filter(t => t.date === today);
-    const todayVins = new Set();
-    filtered.forEach(t => {
-      if (t.vin) vins.add(t.vin);
-      if (t.rooftop) rooftops.add(t.rooftop);
-      if (t.enterprise) entSet.add(t.enterprise);
-      statuses[t.status] = (statuses[t.status]||0)+1;
-      if (t.category) categories[t.category] = (categories[t.category]||0)+1;
-      if (t.csm) csms[t.csm] = (csms[t.csm]||0)+1;
-      const eid = t.enterprise||"Unknown";
-      if (!enterprises[eid]) enterprises[eid] = {id:t.enterpriseId||"",tickets:0,vins:new Set(),open:0,closed:0,escalated:0};
-      enterprises[eid].tickets++;
-      if (t.vin) enterprises[eid].vins.add(t.vin);
-      if (t.status==="Open") enterprises[eid].open++;
-      if (t.status==="Closed") enterprises[eid].closed++;
-      if (t.status==="Escalated") enterprises[eid].escalated++;
-    });
-    todayT.forEach(t => { if(t.vin) todayVins.add(t.vin); });
-    // Trend last 14 days
-    const trend = [];
-    for (let i=13; i>=0; i--) {
-      const d = new Date(); d.setDate(d.getDate()-i);
-      const ds = d.toISOString().split("T")[0];
-      trend.push({ day: ds.slice(5), count: filtered.filter(t=>t.date===ds).length });
-    }
-    return { statuses, categories, csms, enterprises, vins, rooftops, entSet, todayT, todayVins, trend };
-  }, [filtered]);
-
-  const addTicket = () => {
-    const t = { ...form, ticketNo: form.ticketNo || `TKT-${String(tickets.length+1).padStart(3,"0")}` };
-    setTickets(prev => [...prev, t]);
-    setForm({ ticketNo:"", date:today, enterprise:"", enterpriseId:"", rooftop:"", rooftopId:"", vin:"", category:"", status:"Open", doneBy:"", csm:"", reviewThrough:"", remarks:"" });
-    setShowAdd(false);
-  };
-
-  const importCSV = () => {
-    const lines = pasteData.trim().split("\n");
-    const headers = lines[0].split(",").map(h=>h.trim().toLowerCase());
-    const fieldMap = {
-      ticketNo:["ticket no","ticket_no","ticketno"], date:["date"],
-      enterprise:["enterprise name","enterprise_name","enterprise"],
-      enterpriseId:["enterprise id","enterprise_id","enterpriseid"],
-      rooftop:["rooftop"], rooftopId:["rooftop id","rooftop_id","rooftopid"],
-      vin:["stock/vin","vin","stock"], category:["category","catagory"],
-      status:["status"], doneBy:["done by","done_by","doneby"],
-      csm:["csm"], reviewThrough:["review through","review_through"], remarks:["remarks"],
-    };
-    const idx = {};
-    Object.entries(fieldMap).forEach(([field, aliases]) => {
-      for (const a of aliases) { const i = headers.indexOf(a); if (i!==-1){idx[field]=i;break;} }
-    });
-    const newT = [];
-    for (let i=1;i<lines.length;i++) {
-      if (!lines[i].trim()) continue;
-      const cols = lines[i].split(",");
-      const t = {};
-      Object.entries(idx).forEach(([f,ci]) => { t[f] = (cols[ci]||"").trim(); });
-      if (t.ticketNo||t.vin||t.date) newT.push(t);
-    }
-    setTickets(prev => [...prev, ...newT]);
-    setPasteData(""); setShowImport(false);
-  };
-
-  const KPI = ({label, value, sub, color}) => (
-    <div style={s.kpiCard(color)}>
-      <div style={s.kpiLabel}>{label}</div>
-      <div style={s.kpiValue(color)}>{value}</div>
-      <div style={s.kpiSub}>{sub}</div>
-    </div>
-  );
-
-  const ProgressBar = ({label, count, total, color}) => (
-    <div style={s.progressItem}>
-      <div style={s.progressLabel}><span>{label}</span><span style={{color:"#94a3b8"}}>{count} ({total?Math.round(count/total*100):0}%)</span></div>
-      <div style={s.progressBar}><div style={{height:"100%",borderRadius:3,background:color,width:`${total?Math.round(count/total*100):0}%`,transition:"width 0.6s ease"}}></div></div>
-    </div>
-  );
-
-  const total = filtered.length;
-  const closed = stats.statuses["Closed"]||0;
-  const open = (stats.statuses["Open"]||0)+(stats.statuses["In Progress"]||0)+(stats.statuses["Pending"]||0);
-  const escalated = stats.statuses["Escalated"]||0;
-
-  const statusPieData = Object.entries(stats.statuses).map(([name,value])=>({name,value}));
-  const catBarData = Object.entries(stats.categories).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value).slice(0,7);
-  const csmBarData = Object.entries(stats.csms).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([name,value])=>({name,value}));
-  const entRows = Object.entries(stats.enterprises).sort((a,b)=>b[1].tickets-a[1].tickets);
-
-  const todayData = stats.todayT;
-
-  return (
-    <div style={s.wrap}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-      <div style={s.inner}>
-        {/* HEADER */}
-        <div style={s.header}>
-          <div style={s.logo}>
-            <div style={s.logoIcon}>🎫</div>
-            <div>
-              <div style={s.h1}>Ticket <span style={s.h1span}>Dashboard</span></div>
-              <div style={s.sub}>Daily Tracking · Ticket Tab</div>
-            </div>
-          </div>
-          <div style={s.btnRow}>
-            <div style={s.clock}>{clock}</div>
-            <button style={s.btnGhost} onClick={()=>setShowImport(true)}>⬆ Import CSV</button>
-            <button style={s.btnPrimary} onClick={()=>setShowAdd(true)}>+ Add Ticket</button>
-          </div>
-        </div>
-
-        {/* TABS */}
-        <div style={s.tabs}>
-          {["dashboard","table","daily"].map(t => (
-            <button key={t} style={tab===t?s.tabActive:s.tab} onClick={()=>setTab(t)}>
-              {t==="dashboard"?"📊 Dashboard":t==="table"?"📋 All Tickets":"📅 Daily View"}
-            </button>
-          ))}
-        </div>
-
-        {/* FILTERS */}
-        <div style={s.filters}>
-          {[["From",<input type="date" style={s.input} value={fFrom} onChange={e=>setFFrom(e.target.value)}/>],
-            ["To",<input type="date" style={s.input} value={fTo} onChange={e=>setFTo(e.target.value)}/>],
-            ["Status",<select style={s.input} value={fStatus} onChange={e=>setFStatus(e.target.value)}><option value="">All Statuses</option>{["Open","Closed","Pending","In Progress","Escalated"].map(s=><option key={s}>{s}</option>)}</select>],
-            ["Category",<select style={s.input} value={fCategory} onChange={e=>setFCategory(e.target.value)}><option value="">All Categories</option>{cats.map(c=><option key={c}>{c}</option>)}</select>],
-            ["Enterprise",<select style={s.input} value={fEnterprise} onChange={e=>setFEnterprise(e.target.value)}><option value="">All Enterprises</option>{ents.map(e=><option key={e}>{e}</option>)}</select>],
-            ["Search VIN/Ticket",<input style={{...s.input,minWidth:170}} placeholder="Search..." value={fSearch} onChange={e=>setFSearch(e.target.value)}/>],
-          ].map(([label,el]) => (
-            <div key={label} style={s.filterGroup}>
-              <span style={s.filterLabel}>{label}</span>{el}
-            </div>
-          ))}
-          <div style={s.filterGroup}>
-            <span style={s.filterLabel}>&nbsp;</span>
-            <button style={{...s.btnGhost,height:34}} onClick={()=>{setFFrom("");setFTo("");setFStatus("");setFCategory("");setFEnterprise("");setFSearch("");}}>Reset</button>
-          </div>
-        </div>
-
-        {/* ── DASHBOARD ── */}
-        {tab==="dashboard" && <>
-          {/* KPIs */}
-          <div style={s.kpiGrid}>
-            <KPI label="Total Tickets" value={total} sub={`${stats.vins.size} unique VINs`} color="#3b82f6"/>
-            <KPI label="Unique VINs" value={stats.vins.size} sub="Distinct stock" color="#06b6d4"/>
-            <KPI label="Closed" value={closed} sub={total?`${Math.round(closed/total*100)}% closure rate`:"—"} color="#10b981"/>
-            <KPI label="Open / Active" value={open} sub={total?`${Math.round(open/total*100)}% of total`:"—"} color="#f59e0b"/>
-            <KPI label="Escalated" value={escalated} sub="Needs attention" color="#f43f5e"/>
-            <KPI label="Enterprises" value={stats.entSet.size} sub="Active" color="#a78bfa"/>
-            <KPI label="Rooftops" value={stats.rooftops.size} sub="Locations" color="#06b6d4"/>
-            <KPI label="Today's Tickets" value={stats.todayT.length} sub={`${stats.todayVins.size} VINs today`} color="#3b82f6"/>
-          </div>
-
-          {/* CHARTS */}
-          <div style={s.chartsRow}>
-            <div style={s.chartCard}>
-              <div style={s.chartTitle}>Status Breakdown</div>
-              <ResponsiveContainer width="100%" height={190}>
-                <PieChart>
-                  <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                    {statusPieData.map((entry,i)=><Cell key={i} fill={COLORS[entry.name]||"#64748b"}/>)}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip/>}/>
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:6}}>
-                {statusPieData.map(e=>(
-                  <span key={e.name} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#94a3b8"}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[e.name]||"#64748b",display:"inline-block"}}></span>{e.name} ({e.value})
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div style={s.chartCard}>
-              <div style={s.chartTitle}>Tickets by Category</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={catBarData} margin={{top:4,right:4,left:-20,bottom:0}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2d45"/>
-                  <XAxis dataKey="name" tick={{fill:"#64748b",fontSize:10}} />
-                  <YAxis tick={{fill:"#64748b",fontSize:10}}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Bar dataKey="value" radius={[4,4,0,0]}>
-                    {catBarData.map((_,i)=><Cell key={i} fill={CAT_COLORS[i%CAT_COLORS.length]}/>)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={s.chartCard}>
-              <div style={s.chartTitle}>14-Day Ticket Trend</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={stats.trend} margin={{top:4,right:4,left:-20,bottom:0}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2d45"/>
-                  <XAxis dataKey="day" tick={{fill:"#64748b",fontSize:10}}/>
-                  <YAxis tick={{fill:"#64748b",fontSize:10}} allowDecimals={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Line type="monotone" dataKey="count" stroke="#06b6d4" strokeWidth={2} dot={{fill:"#06b6d4",r:3}} activeDot={{r:5}}/>
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* PROGRESS + CSM */}
-          <div style={s.twoCol}>
-            <div style={s.chartCard}>
-              <div style={s.chartTitle}>Status Distribution</div>
-              {[{l:"Closed",c:"#10b981"},{l:"Open",c:"#f59e0b"},{l:"In Progress",c:"#06b6d4"},{l:"Pending",c:"#3b82f6"},{l:"Escalated",c:"#f43f5e"}]
-                .map(({l,c})=><ProgressBar key={l} label={l} count={stats.statuses[l]||0} total={total} color={c}/>)}
-            </div>
-            <div style={s.chartCard}>
-              <div style={s.chartTitle}>Top CSMs by Tickets</div>
-              {csmBarData.length ? csmBarData.map(({name,value})=>(
-                <ProgressBar key={name} label={name||"Unknown"} count={value} total={csmBarData[0]?.value||1} color="#3b82f6"/>
-              )) : <div style={{color:"#64748b",fontSize:13,padding:"20px 0",textAlign:"center"}}>No CSM data yet</div>}
-            </div>
-          </div>
-
-          {/* ENTERPRISE TABLE */}
-          <div style={s.section}>
-            <div style={s.sectionHead}>
-              <div style={s.sectionTitle}>Enterprise Summary</div>
-              <span style={s.badge}>{entRows.length} enterprises</span>
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={s.table}>
-                <thead><tr>{["Enterprise","Enterprise ID","Total Tickets","Unique VINs","Open","Closed","Escalated"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {entRows.length ? entRows.map(([name,e])=>(
-                    <tr key={name}>
-                      <td style={s.td}><strong>{name}</strong></td>
-                      <td style={{...s.td,color:"#64748b"}}>{e.id}</td>
-                      <td style={s.td}>{e.tickets}</td>
-                      <td style={s.td}>{e.vins.size}</td>
-                      <td style={{...s.td,color:"#f59e0b"}}>{e.open}</td>
-                      <td style={{...s.td,color:"#10b981"}}>{e.closed}</td>
-                      <td style={{...s.td,color:"#f43f5e"}}>{e.escalated}</td>
-                    </tr>
-                  )) : <tr><td colSpan={7} style={{...s.td,color:"#64748b",textAlign:"center",padding:30}}>No data</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>}
-
-        {/* ── ALL TICKETS ── */}
-        {tab==="table" && (
-          <div style={s.section}>
-            <div style={s.sectionHead}>
-              <div style={s.sectionTitle}>All Tickets</div>
-              <span style={s.badge}>{filtered.length} tickets</span>
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={s.table}>
-                <thead><tr>{["#","Ticket No","Date","Enterprise","Ent. ID","Rooftop","RT ID","VIN/Stock","Category","Status","Done By","CSM","Review Through","Remarks"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {filtered.length ? filtered.map((t,i)=>(
-                    <tr key={i} style={{background:i%2?"#0d1220":"transparent"}}>
-                      <td style={{...s.td,color:"#64748b"}}>{i+1}</td>
-                      <td style={s.td}><strong>{t.ticketNo||"—"}</strong></td>
-                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.date||"—"}</td>
-                      <td style={s.td}>{t.enterprise||"—"}</td>
-                      <td style={{...s.td,color:"#64748b"}}>{t.enterpriseId||"—"}</td>
-                      <td style={s.td}>{t.rooftop||"—"}</td>
-                      <td style={{...s.td,color:"#64748b"}}>{t.rooftopId||"—"}</td>
-                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.vin||"—"}</td>
-                      <td style={s.td}>{t.category||"—"}</td>
-                      <td style={s.td}><span style={s.pill(t.status)}>{t.status||"—"}</span></td>
-                      <td style={s.td}>{t.doneBy||"—"}</td>
-                      <td style={s.td}>{t.csm||"—"}</td>
-                      <td style={s.td}>{t.reviewThrough||"—"}</td>
-                      <td style={{...s.td,color:"#64748b",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis"}}>{t.remarks||"—"}</td>
-                    </tr>
-                  )) : <tr><td colSpan={14} style={{...s.td,textAlign:"center",padding:40,color:"#64748b"}}>No tickets match filters</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── DAILY VIEW ── */}
-        {tab==="daily" && <>
-          <div style={{...s.kpiGrid,gridTemplateColumns:"repeat(4,1fr)"}}>
-            <KPI label="Today's Tickets" value={todayData.length} sub="Total logged" color="#3b82f6"/>
-            <KPI label="Today's VINs" value={stats.todayVins.size} sub="Unique stocks" color="#06b6d4"/>
-            <KPI label="Closed Today" value={todayData.filter(t=>t.status==="Closed").length} sub="Resolved" color="#10b981"/>
-            <KPI label="Open Today" value={todayData.filter(t=>["Open","In Progress","Pending"].includes(t.status)).length} sub="Pending resolution" color="#f59e0b"/>
-          </div>
-          <div style={s.section}>
-            <div style={s.sectionHead}>
-              <div style={s.sectionTitle}>Today's Tickets — {today}</div>
-              <span style={s.badge}>{todayData.length} tickets</span>
-            </div>
-            <div style={{overflowX:"auto"}}>
-              <table style={s.table}>
-                <thead><tr>{["Ticket No","Enterprise","Rooftop","VIN/Stock","Category","Status","Done By","CSM","Remarks"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
-                <tbody>
-                  {todayData.length ? todayData.map((t,i)=>(
-                    <tr key={i}>
-                      <td style={s.td}><strong>{t.ticketNo||"—"}</strong></td>
-                      <td style={s.td}>{t.enterprise||"—"}</td>
-                      <td style={s.td}>{t.rooftop||"—"}</td>
-                      <td style={{...s.td,fontFamily:"monospace",fontSize:11}}>{t.vin||"—"}</td>
-                      <td style={s.td}>{t.category||"—"}</td>
-                      <td style={s.td}><span style={s.pill(t.status)}>{t.status||"—"}</span></td>
-                      <td style={s.td}>{t.doneBy||"—"}</td>
-                      <td style={s.td}>{t.csm||"—"}</td>
-                      <td style={{...s.td,color:"#64748b"}}>{t.remarks||"—"}</td>
-                    </tr>
-                  )) : <tr><td colSpan={9} style={{...s.td,textAlign:"center",padding:40,color:"#64748b"}}>No tickets logged for today</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>}
-      </div>
-
-      {/* ADD TICKET MODAL */}
-      {showAdd && (
-        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowAdd(false)}>
-          <div style={s.modalBox}>
-            <div style={{...s.sectionTitle,fontSize:17,marginBottom:18}}>➕ Add New Ticket</div>
-            <div style={s.formGrid}>
-              {[["Ticket No","ticketNo","text","TKT-001"],["Date","date","date",""],["Enterprise Name","enterprise","text",""],["Enterprise ID","enterpriseId","text","ENT-001"],["Rooftop","rooftop","text",""],["Rooftop ID","rooftopId","text","RT-001"],["Stock / VIN","vin","text",""],["Done By","doneBy","text",""],["CSM","csm","text",""],["Review Through","reviewThrough","text",""]].map(([label,field,type,ph])=>(
-                <div key={field} style={s.formGroup}>
-                  <label style={s.formLabel}>{label}</label>
-                  <input type={type} style={s.input} placeholder={ph} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}/>
-                </div>
-              ))}
-              <div style={s.formGroup}>
-                <label style={s.formLabel}>Category</label>
-                <select style={s.input} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
-                  <option value="">Select...</option>
-                  {["Inspection","Repair","Service","Recall","Warranty","Other"].map(c=><option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div style={s.formGroup}>
-                <label style={s.formLabel}>Status</label>
-                <select style={s.input} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
-                  {["Open","In Progress","Pending","Closed","Escalated"].map(ss=><option key={ss}>{ss}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{...s.formGroup,marginTop:12}}>
-              <label style={s.formLabel}>Remarks</label>
-              <input style={s.input} value={form.remarks} onChange={e=>setForm(f=>({...f,remarks:e.target.value}))} placeholder="Any remarks..."/>
-            </div>
-            <div style={{display:"flex",gap:10,marginTop:18,justifyContent:"flex-end"}}>
-              <button style={s.btnGhost} onClick={()=>setShowAdd(false)}>Cancel</button>
-              <button style={s.btnPrimary} onClick={addTicket}>Save Ticket</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* IMPORT MODAL */}
-      {showImport && (
-        <div style={s.modal} onClick={e=>e.target===e.currentTarget&&setShowImport(false)}>
-          <div style={s.modalBox}>
-            <div style={{...s.sectionTitle,fontSize:17,marginBottom:14}}>⬆ Import Tickets (CSV Paste)</div>
-            <div style={{fontSize:12,color:"#64748b",marginBottom:10}}>Paste CSV data below. First row must be headers. Columns: Ticket No, Date, Enterprise Name, Enterprise ID, Rooftop, Rooftop ID, Stock/VIN, Category, Status, Done By, CSM, Review Through, Remarks</div>
-            <textarea style={s.textarea} value={pasteData} onChange={e=>setPasteData(e.target.value)} placeholder={"Ticket No,Date,Enterprise Name,...\nTKT-001,2025-05-28,ACME,..."}/>
-            <div style={{display:"flex",gap:10,marginTop:14,justifyContent:"flex-end"}}>
-              <button style={s.btnGhost} onClick={()=>setShowImport(false)}>Cancel</button>
-              <button style={s.btnPrimary} onClick={importCSV}>Import</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--s1:#0f1629;--s2:#131d35;--s3:#1a2540;
+  --border:#1e2d47;--border2:#243352;
+  --blue:#3b82f6;--cyan:#06b6d4;--green:#10b981;
+  --amber:#f59e0b;--rose:#f43f5e;--purple:#a78bfa;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
 }
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.03) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:20px 18px}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:18px;margin-bottom:22px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
+.hdr-left{display:flex;align-items:center;gap:14px}
+.hdr-icon{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.hdr-title{font-size:20px;font-weight:800;letter-spacing:-.5px}
+.hdr-title span{color:var(--blue)}
+.hdr-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);background:var(--s1);border:1px solid var(--border);padding:6px 14px;border-radius:20px;white-space:nowrap}
+.btn{padding:7px 16px;border-radius:8px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;transition:all .18s;white-space:nowrap}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#2563eb;transform:translateY(-1px)}
+.btn-g{background:var(--s1);color:var(--text);border:1px solid var(--border)}.btn-g:hover{border-color:var(--blue);color:var(--blue)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#059669}
+
+.tabs{display:flex;gap:3px;margin-bottom:20px;background:var(--s1);padding:4px;border-radius:10px;width:fit-content;border:1px solid var(--border);flex-wrap:wrap}
+.tab{padding:6px 18px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);border:none;background:transparent;transition:all .18s}
+.tab.on{background:var(--blue);color:#fff}
+.tab:hover:not(.on){color:var(--text)}
+
+.filters{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fl{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+select,input[type=date],input[type=text]{background:var(--s1);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none;min-width:140px;transition:border-color .18s}
+select:focus,input:focus{border-color:var(--blue)}
+select option{background:var(--s2)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:13px;margin-bottom:20px}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:16px 18px;position:relative;overflow:hidden;transition:transform .18s,border-color .18s;cursor:default}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2)}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.kblue::after{background:var(--blue)}.kpi.kcyan::after{background:var(--cyan)}
+.kpi.kgreen::after{background:var(--green)}.kpi.kamber::after{background:var(--amber)}
+.kpi.krose::after{background:var(--rose)}.kpi.kpurple::after{background:var(--purple)}
+.kpi-lbl{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.kpi-val{font-size:30px;font-weight:800;line-height:1;margin-bottom:5px}
+.kpi.kblue .kpi-val{color:var(--blue)}.kpi.kcyan .kpi-val{color:var(--cyan)}
+.kpi.kgreen .kpi-val{color:var(--green)}.kpi.kamber .kpi-val{color:var(--amber)}
+.kpi.krose .kpi-val{color:var(--rose)}.kpi.kpurple .kpi-val{color:var(--purple)}
+.kpi-sub{font-size:11px;color:var(--muted)}
+
+.crow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px}
+.cc{background:var(--s1);border:1px solid var(--border);border-radius:13px;padding:18px 18px 14px}
+.ct{font-size:13px;font-weight:700;margin-bottom:14px;color:var(--text)}
+.cw{position:relative;height:200px}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+
+.pi{margin-bottom:11px}
+.pl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted2);margin-bottom:5px}
+.pb{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.pf{height:100%;border-radius:3px;transition:width .7s ease}
+
+.sec{background:var(--s1);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-bottom:20px}
+.sh{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.st{font-size:14px;font-weight:700}
+.badge{background:rgba(59,130,246,.14);color:var(--blue);padding:2px 10px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead tr{background:var(--s2)}
+th{padding:9px 13px;text-align:left;font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);white-space:nowrap}
+td{padding:9px 13px;border-bottom:1px solid var(--s2);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--s2)}
+.pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.pOpen{background:rgba(245,158,11,.14);color:var(--amber)}
+.pClosed{background:rgba(16,185,129,.14);color:var(--green)}
+.pPending{background:rgba(59,130,246,.14);color:var(--blue)}
+.pInProgress{background:rgba(6,182,212,.14);color:var(--cyan)}
+.pEscalated{background:rgba(244,63,94,.14);color:var(--rose)}
+.empty{padding:36px;text-align:center;color:var(--muted);font-size:13px}
+
+/* LOADER */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-txt{font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.loader-sub{font-size:12px;color:var(--muted);opacity:.7}
+
+/* ERROR BANNER */
+#errBanner{display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:14px 18px;margin-bottom:18px;color:var(--rose);font-size:13px;align-items:center;gap:12px}
+#errBanner.show{display:flex}
+
+/* STATUS BAR */
+.status-bar{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:8px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center}
+.ov.open{display:flex}
+.mb{background:var(--s1);border:1px solid var(--border);border-radius:15px;padding:26px;width:90%;max-width:700px;max-height:90vh;overflow-y:auto}
+.mt{font-size:17px;font-weight:800;margin-bottom:18px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgl{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:4px}
+.fi{width:100%}
+.fi-in{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none}
+.fi-in:focus{border-color:var(--blue)}
+.fa{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+
+.leg{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.leg-i{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+@media(max-width:900px){
+  .crow{grid-template-columns:1fr}.two{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="spinner"></div>
+  <div class="loader-txt">Loading your dashboard...</div>
+  <div class="loader-sub">Fetching live data from Google Sheets</div>
+</div>
+
+<div class="wrap" id="mainWrap" style="display:none">
+
+<!-- ERROR BANNER -->
+<div id="errBanner">
+  <span>⚠️</span>
+  <span id="errMsg">Could not load data.</span>
+  <button class="btn btn-g" onclick="loadData()" style="margin-left:auto;font-size:12px;padding:4px 12px">↺ Retry</button>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-icon">🎫</div>
+    <div>
+      <div class="hdr-title">Ticket <span>Dashboard</span></div>
+      <div class="hdr-sub">Live · Google Sheets Connected</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="clock" id="clock">—</div>
+    <button class="btn btn-g" onclick="loadData()">↺ Refresh</button>
+    <button class="btn btn-g" onclick="openAdd()">+ Add Ticket</button>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-dot"></div>
+  <span id="statusTxt">Connected to Google Sheets</span>
+  <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px" id="lastFetch">—</span>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab on" onclick="switchTab('dashboard',this)">📊 Dashboard</button>
+  <button class="tab" onclick="switchTab('all',this)">📋 All Tickets</button>
+  <button class="tab" onclick="switchTab('daily',this)">📅 Daily View</button>
+  <button class="tab" onclick="switchTab('rooftop',this)">🏠 Rooftop</button>
+</div>
+
+<!-- FILTERS -->
+<div class="filters">
+  <div class="fg"><span class="fl">From</span><input type="date" id="fFrom" onchange="render()"></div>
+  <div class="fg"><span class="fl">To</span><input type="date" id="fTo" onchange="render()"></div>
+  <div class="fg"><span class="fl">Status</span>
+    <select id="fStatus" onchange="render()">
+      <option value="">All Statuses</option>
+    </select>
+  </div>
+  <div class="fg"><span class="fl">Category</span><select id="fCat" onchange="render()"><option value="">All Categories</option></select></div>
+  <div class="fg"><span class="fl">Enterprise</span><select id="fEnt" onchange="render()"><option value="">All Enterprises</option></select></div>
+  <div class="fg"><span class="fl">CSM</span><select id="fCsm" onchange="render()"><option value="">All CSMs</option></select></div>
+  <div class="fg"><span class="fl">Search</span><input type="text" id="fSearch" placeholder="VIN, Ticket, Name..." oninput="render()" style="min-width:175px"></div>
+  <div class="fg"><span class="fl">&nbsp;</span><button class="btn btn-g" onclick="resetF()" style="height:35px">↺ Reset</button></div>
+</div>
+
+<!-- DASHBOARD TAB -->
+<div id="tab-dashboard">
+  <div class="kpi-grid">
+    <div class="kpi kblue"><div class="kpi-lbl">Total Tickets</div><div class="kpi-val" id="k-total">—</div><div class="kpi-sub" id="k-total-s">—</div></div>
+    <div class="kpi kcyan"><div class="kpi-lbl">Unique VINs</div><div class="kpi-val" id="k-vins">—</div><div class="kpi-sub">Distinct stock</div></div>
+    <div class="kpi kgreen"><div class="kpi-lbl">Closed</div><div class="kpi-val" id="k-closed">—</div><div class="kpi-sub" id="k-closed-s">—</div></div>
+    <div class="kpi kamber"><div class="kpi-lbl">Open / Active</div><div class="kpi-val" id="k-open">—</div><div class="kpi-sub" id="k-open-s">—</div></div>
+    <div class="kpi krose"><div class="kpi-lbl">Escalated</div><div class="kpi-val" id="k-esc">—</div><div class="kpi-sub">Needs attention</div></div>
+    <div class="kpi kpurple"><div class="kpi-lbl">Enterprises</div><div class="kpi-val" id="k-ent">—</div><div class="kpi-sub">Active</div></div>
+    <div class="kpi kcyan"><div class="kpi-lbl">Rooftops</div><div class="kpi-val" id="k-roof">—</div><div class="kpi-sub">Locations</div></div>
+    <div class="kpi kblue"><div class="kpi-lbl">Today's Tickets</div><div class="kpi-val" id="k-today">—</div><div class="kpi-sub" id="k-today-s">—</div></div>
+  </div>
+
+  <div class="crow">
+    <div class="cc"><div class="ct">Status Breakdown</div><div class="cw"><canvas id="cStatus"></canvas></div><div class="leg" id="legStatus"></div></div>
+    <div class="cc"><div class="ct">Tickets by Category</div><div class="cw"><canvas id="cCat"></canvas></div></div>
+    <div class="cc"><div class="ct">14-Day Ticket Trend</div><div class="cw"><canvas id="cTrend"></canvas></div></div>
+  </div>
+
+  <div class="two">
+    <div class="cc"><div class="ct">Status Distribution</div><div id="statusBars"></div></div>
+    <div class="cc"><div class="ct">Top CSMs by Tickets</div><div id="csmBars"></div></div>
+  </div>
+
+  <div class="sec">
+    <div class="sh"><div class="st">Enterprise Summary</div><span class="badge" id="entBadge">0</span></div>
+    <div class="tw"><table><thead><tr><th>Enterprise</th><th>Ent. ID</th><th>Tickets</th><th>Unique VINs</th><th>Open</th><th>Closed</th><th>Escalated</th></tr></thead><tbody id="entTbl"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ALL TICKETS TAB -->
+<div id="tab-all" style="display:none">
+  <div class="sec">
+    <div class="sh">
+      <div class="st">All Tickets</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge" id="allBadge">0</span>
+        <button class="btn btn-g" onclick="exportCSV()" style="font-size:12px;padding:4px 12px">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div class="tw"><table id="allTable"><thead><tr id="allHead"></tr></thead><tbody id="allTbl"></tbody></table></div>
+  </div>
+</div>
+
+<!-- DAILY TAB -->
+<div id="tab-daily" style="display:none">
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi kblue"><div class="kpi-lbl">Today Tickets</div><div class="kpi-val" id="d-t">—</div></div>
+    <div class="kpi kcyan"><div class="kpi-lbl">Today VINs</div><div class="kpi-val" id="d-v">—</div></div>
+    <div class="kpi kgreen"><div class="kpi-lbl">Closed Today</div><div class="kpi-val" id="d-c">—</div></div>
+    <div class="kpi kamber"><div class="kpi-lbl">Open Today</div><div class="kpi-val" id="d-o">—</div></div>
+  </div>
+  <div class="sec">
+    <div class="sh"><div class="st" id="d-head">Today's Tickets</div><span class="badge" id="d-badge">0</span></div>
+    <div class="tw"><table><thead><tr id="dailyHead"></tr></thead><tbody id="dailyTbl"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ROOFTOP TAB -->
+<div id="tab-rooftop" style="display:none">
+  <div class="crow" style="grid-template-columns:1fr 1fr">
+    <div class="cc"><div class="ct">Tickets per Rooftop</div><div class="cw" style="height:240px"><canvas id="cRoof"></canvas></div></div>
+    <div class="cc"><div class="ct">Top Rooftops by VINs</div><div id="roofBars"></div></div>
+  </div>
+  <div class="sec">
+    <div class="sh"><div class="st">Rooftop Summary</div><span class="badge" id="roofBadge">0</span></div>
+    <div class="tw"><table><thead><tr><th>Rooftop</th><th>Rooftop ID</th><th>Enterprise</th><th>Tickets</th><th>Unique VINs</th><th>Open</th><th>Closed</th><th>Escalated</th></tr></thead><tbody id="roofTbl"></tbody></table></div>
+  </div>
+</div>
+
+</div><!-- wrap -->
+
+<!-- ADD TICKET MODAL -->
+<div class="ov" id="addModal">
+<div class="mb">
+  <div class="mt">➕ Add New Ticket</div>
+  <div class="fg2" id="addFormGrid"></div>
+  <div class="fa">
+    <button class="btn btn-g" onclick="closeAdd()">Cancel</button>
+    <button class="btn btn-p" onclick="saveTicket()">Save Ticket</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+var CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR21eFk9Na7j2xi6akFDZZHi1h-jHqDBC8N9PL3lYuorDIuoY-3rz2cnv5ZG2I0m7aZWydeQHL_-sJB/pub?gid=0&single=true&output=csv';
+
+var tickets = [];
+var headers = [];
+var curTab = 'dashboard';
+var charts = {};
+
+var TODAY = (function(){var d=new Date();return d.toISOString().split('T')[0]})();
+
+// Column name normalizer — maps whatever headers the sheet has to internal keys
+var COL_MAP = {
+  'ticket no':'tno','ticket number':'tno','ticketno':'tno','ticket':'tno',
+  'date':'date',
+  'enterprise name':'ent','enterprise':'ent',
+  'enterprise id':'eid','enterpriseid':'eid',
+  'rooftop':'roof',
+  'rooftop id':'rid','rooftopid':'rid',
+  'stock/vin':'vin','vin':'vin','stock':'vin','stock / vin':'vin',
+  'category':'cat','catagory':'cat',
+  'status':'stat',
+  'done by':'done','doneby':'done',
+  'csm':'csm',
+  'review through':'rev','reviewthrough':'rev',
+  'remarks':'rem'
+};
+
+var STATUS_COLORS = {'Open':'#f59e0b','Closed':'#10b981','In Progress':'#06b6d4','Pending':'#3b82f6','Escalated':'#f43f5e'};
+var CAT_COLORS = ['#3b82f6','#06b6d4','#a78bfa','#f59e0b','#10b981','#f43f5e','#ec4899','#14b8a6','#f97316'];
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function tick(){
+  var n=new Date();
+  var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var mons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';
+  h=h%12||12;
+  document.getElementById('clock').textContent=days[n.getDay()]+', '+mons[n.getMonth()]+' '+n.getDate()+' · '+h+':'+(m<10?'0':'')+m+' '+ap;
+}
+setInterval(tick,1000);tick();
+
+// ── CSV PARSER ──────────────────────────────────────────────────────────────
+function parseCSV(text){
+  var lines=[];
+  var cur='', inQ=false;
+  var rows=[];
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){lines.push(cur.trim().replace(/^"|"$/g,''));cur='';}
+    else if((c==='\n'||c==='\r')&&!inQ){
+      lines.push(cur.trim().replace(/^"|"$/g,''));
+      if(lines.some(function(l){return l!==''}))rows.push(lines);
+      lines=[];cur='';
+      if(c==='\r'&&text[i+1]==='\n')i++;
+    } else {cur+=c;}
+  }
+  if(cur||lines.length){lines.push(cur.trim().replace(/^"|"$/g,''));if(lines.some(function(l){return l!==''}))rows.push(lines);}
+  return rows;
+}
+
+// ── LOAD DATA ──────────────────────────────────────────────────────────────
+function loadData(){
+  document.getElementById('loader').style.display='flex';
+  document.getElementById('mainWrap').style.display='none';
+  document.getElementById('errBanner').classList.remove('show');
+
+  // Use a CORS proxy to fetch the CSV
+  var proxies = [
+    'https://corsproxy.io/?' + encodeURIComponent(CSV_URL),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(CSV_URL),
+    CSV_URL
+  ];
+
+  tryFetch(proxies, 0);
+}
+
+function tryFetch(proxies, idx){
+  if(idx >= proxies.length){
+    showError('Could not load Google Sheet. Make sure it is published as CSV (File → Share → Publish to web → CSV).');
+    return;
+  }
+  fetch(proxies[idx])
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.text();
+    })
+    .then(function(text){
+      processCSV(text);
+    })
+    .catch(function(){
+      tryFetch(proxies, idx+1);
+    });
+}
+
+function processCSV(text){
+  var rows = parseCSV(text);
+  if(!rows.length){showError('Sheet appears empty.');return;}
+
+  // Detect header row
+  var rawHeaders = rows[0];
+  headers = rawHeaders;
+
+  // Map columns
+  var colIdx = {};
+  rawHeaders.forEach(function(h,i){
+    var key = COL_MAP[h.toLowerCase().trim()];
+    if(key) colIdx[key]=i;
+  });
+
+  tickets = [];
+  for(var i=1;i<rows.length;i++){
+    var row=rows[i];
+    if(row.every(function(c){return !c})) continue;
+    var t={};
+    Object.keys(colIdx).forEach(function(k){t[k]=(row[colIdx[k]]||'').trim()});
+    // Also store raw row for full table display
+    t._raw=row;
+    t._idx=i;
+    tickets.push(t);
+  }
+
+  // Update status
+  var now=new Date();
+  document.getElementById('lastFetch').textContent='Updated '+now.toLocaleTimeString();
+  document.getElementById('statusTxt').textContent='Live · '+tickets.length+' tickets loaded from Google Sheets';
+
+  // Build dropdowns
+  buildDropdowns();
+  buildAddForm(rawHeaders, colIdx);
+
+  // Hide loader
+  document.getElementById('loader').style.display='none';
+  document.getElementById('mainWrap').style.display='block';
+
+  render();
+}
+
+function showError(msg){
+  document.getElementById('loader').style.display='none';
+  document.getElementById('mainWrap').style.display='block';
+  document.getElementById('errMsg').textContent=msg;
+  document.getElementById('errBanner').classList.add('show');
+}
+
+// ── DROPDOWNS ─────────────────────────────────────────────────────────────
+function buildDropdowns(){
+  var stats=[...new Set(tickets.map(function(t){return t.stat}).filter(Boolean))];
+  var cats=[...new Set(tickets.map(function(t){return t.cat}).filter(Boolean))];
+  var ents=[...new Set(tickets.map(function(t){return t.ent}).filter(Boolean))];
+  var csms=[...new Set(tickets.map(function(t){return t.csm}).filter(Boolean))];
+
+  fillSel('fStatus', stats, 'All Statuses');
+  fillSel('fCat', cats, 'All Categories');
+  fillSel('fEnt', ents, 'All Enterprises');
+  fillSel('fCsm', csms, 'All CSMs');
+}
+
+function fillSel(id, opts, placeholder){
+  var el=document.getElementById(id);
+  var cur=el.value;
+  el.innerHTML='<option value="">'+placeholder+'</option>'+opts.map(function(o){return'<option'+(o===cur?' selected':'')+'>'+o+'</option>'}).join('');
+}
+
+// ── ADD FORM ───────────────────────────────────────────────────────────────
+var addFormColIdx={};
+function buildAddForm(rawHeaders, colIdx){
+  addFormColIdx=colIdx;
+  var grid=document.getElementById('addFormGrid');
+  grid.innerHTML='';
+  rawHeaders.forEach(function(h,i){
+    var div=document.createElement('div');
+    div.className='fg';
+    var label=document.createElement('label');
+    label.className='fgl';label.textContent=h;
+    var inp=document.createElement('input');
+    inp.className='fi-in';inp.id='af_'+i;
+    inp.placeholder=h;
+    if(h.toLowerCase()==='date'){inp.type='date';inp.value=TODAY;}
+    div.appendChild(label);div.appendChild(inp);
+    grid.appendChild(div);
+  });
+}
+
+function openAdd(){document.getElementById('addModal').classList.add('open')}
+function closeAdd(){document.getElementById('addModal').classList.remove('open')}
+function saveTicket(){
+  var row=[];
+  headers.forEach(function(h,i){
+    var el=document.getElementById('af_'+i);
+    row.push(el?el.value:'');
+  });
+  var t={_raw:row,_idx:tickets.length+1};
+  Object.keys(addFormColIdx).forEach(function(k){t[k]=(row[addFormColIdx[k]]||'').trim()});
+  if(!t.tno) t.tno='TKT-'+String(tickets.length+1).padStart(3,'0');
+  tickets.push(t);
+  closeAdd();
+  document.querySelectorAll('#addFormGrid input').forEach(function(el){el.value='';});
+  render();
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────
+function getFiltered(){
+  var from=document.getElementById('fFrom').value;
+  var to=document.getElementById('fTo').value;
+  var stat=document.getElementById('fStatus').value;
+  var cat=document.getElementById('fCat').value;
+  var ent=document.getElementById('fEnt').value;
+  var csm=document.getElementById('fCsm').value;
+  var q=document.getElementById('fSearch').value.toLowerCase();
+  return tickets.filter(function(t){
+    if(from && t.date && t.date<from) return false;
+    if(to && t.date && t.date>to) return false;
+    if(stat && t.stat!==stat) return false;
+    if(cat && t.cat!==cat) return false;
+    if(ent && t.ent!==ent) return false;
+    if(csm && t.csm!==csm) return false;
+    if(q && JSON.stringify(t._raw||t).toLowerCase().indexOf(q)===-1) return false;
+    return true;
+  });
+}
+
+function resetF(){
+  ['fFrom','fTo','fSearch'].forEach(function(id){document.getElementById(id).value=''});
+  ['fStatus','fCat','fEnt','fCsm'].forEach(function(id){document.getElementById(id).value=''});
+  render();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function switchTab(name,el){
+  curTab=name;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});
+  el.classList.add('on');
+  ['dashboard','all','daily','rooftop'].forEach(function(t){
+    document.getElementById('tab-'+t).style.display=t===name?'':'none';
+  });
+  render();
+}
+
+// ── CHART HELPER ──────────────────────────────────────────────────────────
+function mkChart(id,type,labels,data,colors){
+  if(charts[id]){charts[id].destroy()}
+  var ctx=document.getElementById(id);
+  if(!ctx)return;
+  charts[id]=new Chart(ctx.getContext('2d'),{
+    type:type,
+    data:{labels:labels,datasets:[{
+      data:data,
+      backgroundColor:colors,
+      borderColor:type==='line'?colors[0]:colors,
+      borderWidth:type==='line'?2:1,
+      fill:type==='line'?'origin':undefined,
+      tension:0.4,
+      pointBackgroundColor:type==='line'?colors[0]:undefined,
+      pointRadius:type==='line'?3:0,
+      borderRadius:type==='bar'?5:0
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#131d35',titleColor:'#e2e8f0',bodyColor:'#94a3b8',borderColor:'#1e2d47',borderWidth:1,padding:10}},
+      scales:type!=='doughnut'?{
+        x:{ticks:{color:'#64748b',font:{size:10},maxRotation:45},grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'#64748b',font:{size:10},stepSize:1},grid:{color:'rgba(255,255,255,0.06)'}}
+      }:{}
+    }
+  });
+}
+
+function progBar(label,count,total,color){
+  var pct=total?Math.round(count/total*100):0;
+  return'<div class="pi"><div class="pl"><span>'+label+'</span><span>'+count+' <span style="color:var(--muted)">('+pct+'%)</span></span></div><div class="pb"><div class="pf" style="width:'+pct+'%;background:'+color+'"></div></div></div>';
+}
+
+function pillClass(s){
+  if(!s)return'';
+  return 'pill p'+s.replace(/ /g,'');
+}
+
+// ── MAIN RENDER ───────────────────────────────────────────────────────────
+function render(){
+  var data=getFiltered();
+  var todayD=data.filter(function(t){return t.date===TODAY});
+  var statMap={},catMap={},csmMap={},entMap={},roofMap={};
+  var vins=new Set(),roofs=new Set(),entSet=new Set(),todayVins=new Set();
+
+  data.forEach(function(t){
+    if(t.vin) vins.add(t.vin);
+    if(t.roof) roofs.add(t.roof);
+    if(t.ent) entSet.add(t.ent);
+    var s=t.stat||'Unknown';
+    statMap[s]=(statMap[s]||0)+1;
+    if(t.cat) catMap[t.cat]=(catMap[t.cat]||0)+1;
+    if(t.csm) csmMap[t.csm]=(csmMap[t.csm]||0)+1;
+
+    var eid=t.ent||'Unknown';
+    if(!entMap[eid]) entMap[eid]={id:t.eid||'',tickets:0,vins:new Set(),open:0,closed:0,esc:0};
+    entMap[eid].tickets++;
+    if(t.vin) entMap[eid].vins.add(t.vin);
+    if(['Open','In Progress','Pending'].indexOf(s)>-1) entMap[eid].open++;
+    if(s==='Closed') entMap[eid].closed++;
+    if(s==='Escalated') entMap[eid].esc++;
+
+    var rid=t.roof||'Unknown';
+    if(!roofMap[rid]) roofMap[rid]={id:t.rid||'',ent:t.ent||'',tickets:0,vins:new Set(),open:0,closed:0,esc:0};
+    roofMap[rid].tickets++;
+    if(t.vin) roofMap[rid].vins.add(t.vin);
+    if(['Open','In Progress','Pending'].indexOf(s)>-1) roofMap[rid].open++;
+    if(s==='Closed') roofMap[rid].closed++;
+    if(s==='Escalated') roofMap[rid].esc++;
+  });
+  todayD.forEach(function(t){if(t.vin)todayVins.add(t.vin)});
+
+  var total=data.length,closed=statMap['Closed']||0,esc=statMap['Escalated']||0;
+  var open=(statMap['Open']||0)+(statMap['In Progress']||0)+(statMap['Pending']||0);
+
+  // KPIs
+  document.getElementById('k-total').textContent=total;
+  document.getElementById('k-total-s').textContent=vins.size+' unique VINs';
+  document.getElementById('k-vins').textContent=vins.size;
+  document.getElementById('k-closed').textContent=closed;
+  document.getElementById('k-closed-s').textContent=total?Math.round(closed/total*100)+'% closure rate':'—';
+  document.getElementById('k-open').textContent=open;
+  document.getElementById('k-open-s').textContent=total?Math.round(open/total*100)+'% of total':'—';
+  document.getElementById('k-esc').textContent=esc;
+  document.getElementById('k-ent').textContent=entSet.size;
+  document.getElementById('k-roof').textContent=roofs.size;
+  document.getElementById('k-today').textContent=todayD.length;
+  document.getElementById('k-today-s').textContent=todayVins.size+' VINs today';
+
+  if(curTab==='dashboard'){
+    var sL=Object.keys(statMap),sV=Object.values(statMap);
+    var sC=sL.map(function(l){return STATUS_COLORS[l]||'#64748b'});
+    mkChart('cStatus','doughnut',sL,sV,sC);
+    document.getElementById('legStatus').innerHTML=sL.map(function(l,i){return'<span class="leg-i"><span class="leg-dot" style="background:'+sC[i]+'"></span>'+l+' ('+sV[i]+')</span>'}).join('');
+
+    var cK=Object.keys(catMap),cV=Object.values(catMap);
+    mkChart('cCat','bar',cK,cV,cK.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length]}));
+
+    var tL=[],tV=[];
+    for(var i=13;i>=0;i--){var d=new Date(Date.now()-i*86400000);var ds=d.toISOString().split('T')[0];tL.push(ds.slice(5));tV.push(data.filter(function(t){return t.date===ds}).length);}
+    mkChart('cTrend','line',tL,tV,['#06b6d4']);
+
+    var tot2=total||1;
+    document.getElementById('statusBars').innerHTML=
+      Object.keys(STATUS_COLORS).map(function(l){return progBar(l,statMap[l]||0,tot2,STATUS_COLORS[l])}).join('');
+
+    var cArr=Object.entries(csmMap).sort(function(a,b){return b[1]-a[1]}).slice(0,8);
+    var cMax=cArr.length?cArr[0][1]:1;
+    document.getElementById('csmBars').innerHTML=cArr.length?cArr.map(function(e){return progBar(e[0],e[1],cMax,'var(--blue)')}).join(''):'<div class="empty">No CSM data</div>';
+
+    var eRows=Object.entries(entMap).sort(function(a,b){return b[1].tickets-a[1].tickets});
+    document.getElementById('entBadge').textContent=eRows.length+' enterprises';
+    document.getElementById('entTbl').innerHTML=eRows.length?eRows.map(function(e){
+      return'<tr><td><strong>'+e[0]+'</strong></td><td style="color:var(--muted)">'+e[1].id+'</td><td>'+e[1].tickets+'</td><td>'+e[1].vins.size+'</td><td style="color:var(--amber)">'+e[1].open+'</td><td style="color:var(--green)">'+e[1].closed+'</td><td style="color:var(--rose)">'+e[1].esc+'</td></tr>';
+    }).join(''):'<tr><td colspan="7" class="empty">No data</td></tr>';
+  }
+
+  if(curTab==='all'){
+    document.getElementById('allBadge').textContent=data.length+' tickets';
+    // Build dynamic headers from sheet
+    document.getElementById('allHead').innerHTML=headers.map(function(h){return'<th>'+h+'</th>'}).join('');
+    document.getElementById('allTbl').innerHTML=data.length?data.map(function(t,i){
+      return'<tr>'+headers.map(function(h,ci){
+        var val=(t._raw&&t._raw[ci]!==undefined)?t._raw[ci]:'—';
+        // Status pill
+        var lc=h.toLowerCase().trim();
+        if((lc==='status')&&val){return'<td><span class="'+pillClass(val)+'">'+val+'</span></td>';}
+        return'<td style="'+(ci<2?'color:var(--muted2);font-family:monospace;font-size:11px':'')+'">'+val+'</td>';
+      }).join('')+'</tr>';
+    }).join(''):'<tr><td colspan="'+headers.length+'" class="empty">No tickets match filters</td></tr>';
+  }
+
+  if(curTab==='daily'){
+    var tv=new Set(todayD.map(function(t){return t.vin}).filter(Boolean));
+    document.getElementById('d-t').textContent=todayD.length;
+    document.getElementById('d-v').textContent=tv.size;
+    document.getElementById('d-c').textContent=todayD.filter(function(t){return t.stat==='Closed'}).length;
+    document.getElementById('d-o').textContent=todayD.filter(function(t){return['Open','In Progress','Pending'].indexOf(t.stat)>-1}).length;
+    document.getElementById('d-head').textContent="Today's Tickets — "+TODAY;
+    document.getElementById('d-badge').textContent=todayD.length+' tickets';
+    document.getElementById('dailyHead').innerHTML=headers.map(function(h){return'<th>'+h+'</th>'}).join('');
+    document.getElementById('dailyTbl').innerHTML=todayD.length?todayD.map(function(t){
+      return'<tr>'+headers.map(function(h,ci){
+        var val=(t._raw&&t._raw[ci]!==undefined)?t._raw[ci]:'—';
+        var lc=h.toLowerCase().trim();
+        if(lc==='status'&&val)return'<td><span class="'+pillClass(val)+'">'+val+'</span></td>';
+        return'<td>'+val+'</td>';
+      }).join('')+'</tr>';
+    }).join(''):'<tr><td colspan="'+headers.length+'" class="empty">No tickets for today</td></tr>';
+  }
+
+  if(curTab==='rooftop'){
+    var rRows=Object.entries(roofMap).sort(function(a,b){return b[1].tickets-a[1].tickets});
+    var rLabels=rRows.slice(0,10).map(function(r){return r[0]});
+    var rVals=rRows.slice(0,10).map(function(r){return r[1].tickets});
+    mkChart('cRoof','bar',rLabels,rVals,rLabels.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length]}));
+
+    var rMax=rRows.length?rRows[0][1].vins.size:1;
+    document.getElementById('roofBars').innerHTML=rRows.slice(0,8).map(function(r){
+      return progBar(r[0],r[1].vins.size,rMax||1,'var(--cyan)');
+    }).join('');
+
+    document.getElementById('roofBadge').textContent=rRows.length+' rooftops';
+    document.getElementById('roofTbl').innerHTML=rRows.map(function(r){
+      return'<tr><td><strong>'+r[0]+'</strong></td><td style="color:var(--muted)">'+r[1].id+'</td><td>'+r[1].ent+'</td><td>'+r[1].tickets+'</td><td>'+r[1].vins.size+'</td><td style="color:var(--amber)">'+r[1].open+'</td><td style="color:var(--green)">'+r[1].closed+'</td><td style="color:var(--rose)">'+r[1].esc+'</td></tr>';
+    }).join('');
+  }
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────
+function exportCSV(){
+  var data=getFiltered();
+  var rows=[headers.join(',')];
+  data.forEach(function(t){
+    rows.push((t._raw||[]).map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"'}).join(','));
+  });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tickets_export.csv';
+  a.click();
+}
+
+// ── CLOSE MODAL ON OVERLAY ─────────────────────────────────────────────────
+document.getElementById('addModal').addEventListener('click',function(e){if(e.target===this)closeAdd()});
+
+// ── START ──────────────────────────────────────────────────────────────────
+loadData();
+// Auto-refresh every 5 minutes
+setInterval(loadData, 5*60*1000);
+</script>
+</body>
+</html>
