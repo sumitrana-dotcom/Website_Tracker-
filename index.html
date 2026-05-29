@@ -426,20 +426,18 @@ textarea:focus{border-color:var(--blue)}
 </div><!-- content -->
 </div><!-- app -->
 
-<!-- PASTE MODAL -->
+<!-- PASTE MODAL (backup only) -->
 <div class="ov" id="impModal">
 <div class="modal">
-  <div class="modal-title">📋 Load Your Google Sheet Data</div>
-  <div class="modal-sub">Browsers block direct Google Sheets access (CORS policy). Just paste your CSV — it takes 10 seconds and loads 8000+ tickets instantly.</div>
+  <div class="modal-title">📋 Manual Data Load</div>
+  <div class="modal-sub">Use this if auto-fetch isn't working on your network. This is a one-time paste — data loads instantly.</div>
   <div class="hint-box">
-    <strong style="color:var(--text)">Steps to get your data:</strong><br>
-    1. Open your Google Sheet<br>
-    2. Click <code>File → Download → Comma Separated Values (.csv)</code><br>
-    3. Open the downloaded .csv file in <code>Notepad</code> (Windows) or <code>TextEdit</code> (Mac)<br>
-    4. Press <code>Ctrl+A</code> to select all, then <code>Ctrl+C</code> to copy<br>
-    5. Paste below and click <strong style="color:var(--green)">Load Data</strong>
+    <strong style="color:var(--text)">Quick steps:</strong><br>
+    1. Open your Google Sheet → <code>File → Download → CSV</code><br>
+    2. Open the .csv in <code>Notepad</code> → <code>Ctrl+A</code> → <code>Ctrl+C</code><br>
+    3. Paste below and click <strong style="color:var(--green)">Load Data</strong>
   </div>
-  <textarea id="pasteArea" placeholder="Paste your CSV data here...&#10;Example:&#10;Ticket No,Date,Enterprise Name,...&#10;14354,07-Apr-2026,Gettel Automotive Group,..."></textarea>
+  <textarea id="pasteArea" placeholder="Paste your CSV data here..."></textarea>
   <div class="modal-actions">
     <button class="nav-btn nb-ghost" onclick="closeImport()">Cancel</button>
     <button class="nav-btn nb-blue" onclick="doImport()">✓ Load Data</button>
@@ -563,21 +561,41 @@ function refreshData(){
   var url=getCSV(activeSheet);
   var proxies=[
     'https://corsproxy.io/?'+encodeURIComponent(url),
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(url)
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),
+    'https://yacdn.org/proxy/'+url,
+    url
   ];
+  setStatus('loading','Fetching live data...');
   tryProxy(proxies,0);
+}
+
+function setStatus(type,msg){
+  var badge=document.getElementById('navBadge');
+  var ss=document.getElementById('sheetStatus');
+  if(type==='loading'){
+    badge.textContent='⟳ '+msg;
+    badge.style.cssText='background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
+    if(ss)ss.textContent='Connecting...';
+  } else if(type==='error'){
+    badge.textContent='⚠ Auto-fetch failed';
+    badge.style.cssText='background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#f59e0b;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
+    if(ss)ss.innerHTML='Auto-fetch blocked by network · <a onclick="openImport()" style="color:#3b82f6;cursor:pointer;text-decoration:underline">Click here to paste CSV manually</a>';
+  }
 }
 
 function tryProxy(proxies,idx){
   if(idx>=proxies.length){
-    document.getElementById('navBadge').textContent='⚠ Click Paste Data to load';
-    document.getElementById('navBadge').style.color='#f59e0b';
-    openImport();
+    setStatus('error','');
+    // Do NOT auto-open modal — just show the status message
     return;
   }
-  fetch(proxies[idx],{signal:AbortSignal.timeout(7000)})
+  fetch(proxies[idx],{signal:AbortSignal.timeout(8000)})
     .then(function(r){if(!r.ok)throw new Error('bad');return r.text();})
-    .then(function(txt){if(!processRows(parseCSV(txt)))throw new Error('empty');})
+    .then(function(txt){
+      if(txt.length<50||txt.indexOf(',')===-1)throw new Error('invalid');
+      if(!processRows(parseCSV(txt)))throw new Error('empty');
+    })
     .catch(function(){tryProxy(proxies,idx+1);});
 }
 
