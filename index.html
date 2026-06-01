@@ -558,39 +558,91 @@ function refreshData(){
   var sheetName=SHEETS[activeSheet].name;
   var url=APPS_SCRIPT_URL+'?sheet='+encodeURIComponent(sheetName)+'&t='+Date.now();
   setStatus('loading','Fetching live data from Google Sheets...');
-  fetch(url)
+  // follow:manual handles Google's redirect for Apps Script
+  fetch(url, {redirect:'follow', mode:'cors'})
     .then(function(r){
       if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
+      return r.text();
     })
-    .then(function(json){
+    .then(function(txt){
+      // Apps Script sometimes wraps in a redirect page — try to extract JSON
+      var json;
+      try{
+        // Direct JSON
+        json=JSON.parse(txt);
+      } catch(e){
+        // Try to extract JSON from HTML response
+        var match=txt.match(/\{[\s\S]*"rows"[\s\S]*\}/);
+        if(match){json=JSON.parse(match[0]);}
+        else throw new Error('Not JSON: '+txt.substring(0,100));
+      }
       if(json.error) throw new Error(json.error);
-      if(!json.rows||!json.rows.length) throw new Error('empty');
+      if(!json.rows||!json.rows.length) throw new Error('No rows in response');
       processJSON(json.rows);
     })
     .catch(function(err){
-      console.warn('Apps Script fetch failed:',err);
-      setStatus('error','');
+      console.warn('Apps Script fetch failed:',err.message);
+      // Try with no-cors as fallback
+      tryCSVFallback(sheetName);
     });
+}
+
+function tryCSVFallback(sheetName){
+  // Fallback: try CSV via proxy
+  var csvUrl='https://docs.google.com/spreadsheets/d/e/2PACX-1vR21eFk9Na7j2xi6akFDZZHi1h-jHqDBC8N9PL3lYuorDIuoY-3rz2cnv5ZG2I0m7aZWydeQHL_-sJB/pub?gid=0&single=true&output=csv';
+  var proxies=[
+    'https://corsproxy.io/?'+encodeURIComponent(csvUrl),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(csvUrl)
+  ];
+  tryCSVProxy(proxies, 0);
+}
+
+function tryCSVProxy(proxies, idx){
+  if(idx>=proxies.length){
+    setStatus('error','');
+    return;
+  }
+  fetch(proxies[idx], {signal:AbortSignal.timeout(8000)})
+    .then(function(r){if(!r.ok)throw new Error('bad');return r.text();})
+    .then(function(txt){
+      if(txt.length<50||txt.indexOf(',')===-1) throw new Error('invalid');
+      if(!processRows(parseCSV(txt))) throw new Error('empty');
+    })
+    .catch(function(){tryCSVProxy(proxies, idx+1);});
 }
 
 function processJSON(rows){
   if(!rows||!rows.length)return false;
-  // Build headers from first row keys
   headers=Object.keys(rows[0]);
-  var COL_KEYS=headers;
+
   tickets=rows.map(function(row){
     var t={_raw:headers.map(function(h){return row[h]||'';})};
+    // Map each header to internal key
     headers.forEach(function(h){
       var k=COL_MAP[h.toLowerCase().trim()];
       if(k) t[k]=String(row[h]||'').trim();
     });
+    // Extra safety: try common Ticket No variations directly
+    if(!t.tno){
+      var tnoVal=row['Ticket No']||row['Ticket No.']||row['ticket no']||row['TICKET NO']||row['TicketNo']||row['Ticket']||row['ticket_no']||'';
+      if(tnoVal) t.tno=String(tnoVal).trim();
+    }
     return t;
   });
+
+  // Debug: log first ticket to see field mapping
+  if(tickets.length>0){
+    console.log('Sample ticket fields:', Object.keys(tickets[0]));
+    console.log('Sample tno value:', tickets[0].tno);
+    console.log('Sample raw headers:', headers.slice(0,5));
+  }
+
   buildDropdowns();
   var now=new Date();
   var badge=document.getElementById('navBadge');
-  badge.textContent='🟢 LIVE · '+tickets.length.toLocaleString()+' rows · '+SHEETS[activeSheet].name;
+  // Count unique ticket numbers for badge
+  var uniqueTnos=new Set(tickets.map(function(t){return t.tno;}).filter(Boolean));
+  badge.textContent='🟢 LIVE · '+uniqueTnos.size.toLocaleString()+' tickets · '+tickets.length.toLocaleString()+' rows';
   badge.style.cssText='background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
   document.getElementById('sheetStatus').textContent='Auto-updated: '+now.toLocaleTimeString();
   render();
@@ -739,12 +791,14 @@ function render(){
   var vins=new Set(),roofs=new Set(),entSet=new Set(),todayVins=new Set();
   var seenTnos=new Set();
 
-  data.forEach(function(t){
+  data.forEach(function(t,idx){
     if(t.vin)vins.add(t.vin);
     if(t.roof)roofs.add(t.roof);
     if(t.ent)entSet.add(t.ent);
     var s=t.stat||'Unknown';
-    var tkey=t.tno?t.tno.trim():'__r'+data.indexOf(t);
+    // Use ticket number for dedup — fall back to row index only if truly missing
+    var tno=t.tno||'';
+    var tkey=tno!==''?('T_'+tno):('__r'+idx);
     var isNew=!seenTnos.has(tkey);
     if(isNew){
       seenTnos.add(tkey);
@@ -778,13 +832,13 @@ function render(){
   todayD.forEach(function(t){if(t.vin)todayVins.add(t.vin);});
 
   var total=seenTnos.size;
-  var todayTnos=new Set(todayD.map(function(t){return t.tno?t.tno.trim():'r';}));
+  var todayTnos=new Set(todayD.map(function(t){return t.tno?'T_'+t.tno.trim():'r';}));
   var totalClosed=Object.keys(statMap).filter(isClosed).reduce(function(a,k){return a+(statMap[k]||0);},0);
   var totalEsc=Object.keys(statMap).filter(isEscalated).reduce(function(a,k){return a+(statMap[k]||0);},0);
   var totalActive=total-totalClosed;
 
   document.getElementById('k-total').textContent=total.toLocaleString();
-  document.getElementById('k-total-s').textContent=vins.size.toLocaleString()+' VINs · '+data.length.toLocaleString()+' rows';
+  document.getElementById('k-total-s').textContent=data.length.toLocaleString()+' total rows ('+vins.size.toLocaleString()+' VINs)';
   document.getElementById('k-vins').textContent=vins.size.toLocaleString();
   document.getElementById('k-closed').textContent=totalClosed.toLocaleString();
   document.getElementById('k-closed-s').textContent=total?Math.round(totalClosed/total*100)+'% resolution rate':'—';
