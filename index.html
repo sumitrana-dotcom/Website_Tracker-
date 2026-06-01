@@ -446,18 +446,13 @@ textarea:focus{border-color:var(--blue)}
 </div>
 
 <script>
-var BASE_ID='2PACX-1vR21eFk9Na7j2xi6akFDZZHi1h-jHqDBC8N9PL3lYuorDIuoY-3rz2cnv5ZG2I0m7aZWydeQHL_-sJB';
 var SHEETS={
-  1:{name:'Tickets',gid:'0'},
-  2:{name:'Website Dashboard Meta',gid:'1'}
+  1:{name:'Tickets'},
+  2:{name:'Website Dashboard Meta'}
 };
 var activeSheet=1;
 var tickets=[],headers=[],curTab='analytics',charts={};
 var TODAY=(function(){var d=new Date();return d.toISOString().split('T')[0];})();
-
-function getCSV(sheetNum){
-  return 'https://docs.google.com/spreadsheets/d/e/'+BASE_ID+'/pub?gid='+SHEETS[sheetNum].gid+'&single=true&output=csv';
-}
 
 function switchSheet(num){
   activeSheet=num;
@@ -557,17 +552,49 @@ function processRows(rows){
   return true;
 }
 
+var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxj7Mth9csvqOzifYk-FmYDET44YuU8yXZDJjOjGFLaTAmXG1Lf9RUyqeV0UkgVC7LF/exec';
+
 function refreshData(){
-  var url=getCSV(activeSheet);
-  var proxies=[
-    'https://corsproxy.io/?'+encodeURIComponent(url),
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
-    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),
-    'https://yacdn.org/proxy/'+url,
-    url
-  ];
-  setStatus('loading','Fetching live data...');
-  tryProxy(proxies,0);
+  var sheetName=SHEETS[activeSheet].name;
+  var url=APPS_SCRIPT_URL+'?sheet='+encodeURIComponent(sheetName)+'&t='+Date.now();
+  setStatus('loading','Fetching live data from Google Sheets...');
+  fetch(url)
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(json){
+      if(json.error) throw new Error(json.error);
+      if(!json.rows||!json.rows.length) throw new Error('empty');
+      processJSON(json.rows);
+    })
+    .catch(function(err){
+      console.warn('Apps Script fetch failed:',err);
+      setStatus('error','');
+    });
+}
+
+function processJSON(rows){
+  if(!rows||!rows.length)return false;
+  // Build headers from first row keys
+  headers=Object.keys(rows[0]);
+  var COL_KEYS=headers;
+  tickets=rows.map(function(row){
+    var t={_raw:headers.map(function(h){return row[h]||'';})};
+    headers.forEach(function(h){
+      var k=COL_MAP[h.toLowerCase().trim()];
+      if(k) t[k]=String(row[h]||'').trim();
+    });
+    return t;
+  });
+  buildDropdowns();
+  var now=new Date();
+  var badge=document.getElementById('navBadge');
+  badge.textContent='🟢 LIVE · '+tickets.length.toLocaleString()+' rows · '+SHEETS[activeSheet].name;
+  badge.style.cssText='background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
+  document.getElementById('sheetStatus').textContent='Auto-updated: '+now.toLocaleTimeString();
+  render();
+  return true;
 }
 
 function setStatus(type,msg){
@@ -576,27 +603,12 @@ function setStatus(type,msg){
   if(type==='loading'){
     badge.textContent='⟳ '+msg;
     badge.style.cssText='background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-    if(ss)ss.textContent='Connecting...';
+    if(ss)ss.textContent='Connecting to Google Sheets...';
   } else if(type==='error'){
-    badge.textContent='⚠ Auto-fetch failed';
-    badge.style.cssText='background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#f59e0b;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-    if(ss)ss.innerHTML='Auto-fetch blocked by network · <a onclick="openImport()" style="color:#3b82f6;cursor:pointer;text-decoration:underline">Click here to paste CSV manually</a>';
+    badge.textContent='⚠ Connection failed';
+    badge.style.cssText='background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:#f43f5e;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
+    if(ss)ss.innerHTML='Could not reach Google Sheets · <a onclick="openImport()" style="color:#3b82f6;cursor:pointer;text-decoration:underline">Load manually</a>';
   }
-}
-
-function tryProxy(proxies,idx){
-  if(idx>=proxies.length){
-    setStatus('error','');
-    // Do NOT auto-open modal — just show the status message
-    return;
-  }
-  fetch(proxies[idx],{signal:AbortSignal.timeout(8000)})
-    .then(function(r){if(!r.ok)throw new Error('bad');return r.text();})
-    .then(function(txt){
-      if(txt.length<50||txt.indexOf(',')===-1)throw new Error('invalid');
-      if(!processRows(parseCSV(txt)))throw new Error('empty');
-    })
-    .catch(function(){tryProxy(proxies,idx+1);});
 }
 
 function openImport(){document.getElementById('impModal').classList.add('open');}
@@ -894,7 +906,7 @@ function exportCSV(){
 }
 
 refreshData();
-setInterval(refreshData,10*60*1000);
+setInterval(refreshData, 5*60*1000); // Auto-refresh every 5 minutes
 </script>
 
 </body>
