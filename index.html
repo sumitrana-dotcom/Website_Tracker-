@@ -3,965 +3,384 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Website Review Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<title>Website Tracker — Dashboard</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
-*{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#060912;--s1:#0c1220;--s2:#101828;--s3:#162035;
-  --border:#1c2d44;--border2:#243352;
-  --blue:#3b82f6;--blue2:#1d4ed8;--cyan:#06b6d4;
-  --green:#10b981;--amber:#f59e0b;--rose:#f43f5e;
-  --purple:#8b5cf6;--pink:#ec4899;--orange:#f97316;
-  --text:#f1f5f9;--muted:#64748b;--muted2:#94a3b8;
+  --bg:#f5f6fa;--surface:#fff;--surface2:#f8f9fc;--border:#e8eaf0;
+  --text:#1a1d2e;--muted:#6b7280;--accent:#4f6ef7;--accent2:#7c3aed;
+  --green:#16a34a;--orange:#ea580c;--red:#dc2626;--yellow:#ca8a04;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 8px rgba(0,0,0,.04);
+  --radius:12px;
 }
-html,body{height:100%;overflow-x:hidden}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
-/* GRID BG */
-body::before{content:'';position:fixed;inset:0;
-  background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(59,130,246,.12),transparent),
-  linear-gradient(rgba(59,130,246,.025) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(59,130,246,.025) 1px,transparent 1px);
-  background-size:100% 100%,48px 48px,48px 48px;pointer-events:none;z-index:0}
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.nav-brand{display:flex;align-items:center;gap:10px;padding:14px 0;margin-right:32px}
+.nav-brand .icon{width:32px;height:32px;background:linear-gradient(135deg,#4f6ef7,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.nav-brand span{font-size:15px;font-weight:700;color:var(--text)}
+.nav-brand small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.tabs{display:flex;gap:2px;overflow-x:auto}
+.tab{padding:16px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .18s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
 
-.app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+/* LAYOUT */
+.main{padding:24px 28px;max-width:1400px;margin:0 auto}
 
-/* TOP NAV */
-.nav{background:rgba(12,18,32,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.nav-left{display:flex;align-items:center;gap:14px}
-.nav-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-.nav-title{font-size:17px;font-weight:800;letter-spacing:-.5px}
-.nav-title span{background:linear-gradient(135deg,var(--blue),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.nav-badge{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:var(--green);font-size:10px;padding:2px 9px;border-radius:20px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:5px}
-.nav-badge::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.nav-right{display:flex;align-items:center;gap:10px}
-.clock-box{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted2);background:var(--s1);border:1px solid var(--border);padding:5px 13px;border-radius:8px}
-.nav-btn{height:34px;padding:0 14px;border-radius:8px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;transition:all .18s;display:flex;align-items:center;gap:6px}
-.nb-ghost{background:var(--s1);color:var(--muted2);border:1px solid var(--border)}.nb-ghost:hover{border-color:var(--blue);color:var(--blue)}
-.nb-blue{background:var(--blue);color:#fff}.nb-blue:hover{background:var(--blue2);transform:translateY(-1px)}
-
-/* CONTENT */
-.content{padding:20px 24px;flex:1}
-
-/* TAB BAR */
-.tabbar{display:flex;gap:2px;margin-bottom:22px;background:var(--s1);padding:4px;border-radius:10px;width:fit-content;border:1px solid var(--border)}
-.tb{padding:6px 20px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);border:none;background:transparent;transition:all .18s;display:flex;align-items:center;gap:7px}
-.tb.on{background:linear-gradient(135deg,var(--blue),#2563eb);color:#fff;box-shadow:0 4px 14px rgba(59,130,246,.3)}
-.tb:hover:not(.on){color:var(--text)}
-
-/* FILTER BAR */
-.filterbar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.fg{display:flex;flex-direction:column;gap:4px}
-.fl{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
-select,input[type=date],input[type=text]{background:var(--s2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:7px;font-size:12.5px;font-family:'Inter',sans-serif;outline:none;transition:border-color .18s}
-select:focus,input:focus{border-color:var(--blue)}
-select option{background:var(--s2)}
-input[type=text]{min-width:170px}
-
-/* KPI ROW */
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.kpi{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden;transition:all .2s;cursor:default}
-.kpi:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 8px 32px rgba(0,0,0,.3)}
-.kpi-glow{position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;opacity:.06;filter:blur(20px)}
-.kpi-icon{font-size:22px;margin-bottom:12px}
-.kpi-label{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:600}
-.kpi-value{font-size:34px;font-weight:900;line-height:1;margin-bottom:5px;letter-spacing:-1px}
-.kpi-sub{font-size:11px;color:var(--muted2)}
-.kpi-trend{position:absolute;bottom:14px;right:16px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
-
-/* ANALYTICS GRID */
-.analytics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
-.analytics-grid.wide{grid-template-columns:1.6fr 1fr}
-.analytics-grid.four{grid-template-columns:1fr 1fr 1fr 1fr}
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+.kpi-val{font-size:28px;font-weight:800;letter-spacing:-0.5px}
+.kpi-label{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.kpi-sub{font-size:12px;margin-top:6px;display:flex;align-items:center;gap:4px}
+.up{color:var(--green)}.dn{color:var(--red)}
 
 /* CARDS */
-.card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.card-head{padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
-.card-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
-.card-title-icon{font-size:15px}
-.card-badge{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:2px 8px;border-radius:6px}
-.card-body{padding:16px 18px}
-.chart-wrap{position:relative}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-title .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.card-body{padding:20px}
 
-/* STATUS PILLS */
-.pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
-.p-open,.pOpen{background:rgba(245,158,11,.14);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
-.p-closed,.pClosed,.pDone,.p-done{background:rgba(16,185,129,.14);color:var(--green);border:1px solid rgba(16,185,129,.2)}
-.p-pending,.pPending{background:rgba(59,130,246,.14);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
-.p-inprogress,.pInProgress,.pIn-Progress{background:rgba(6,182,212,.14);color:var(--cyan);border:1px solid rgba(6,182,212,.2)}
-.p-escalated,.pEscalated{background:rgba(244,63,94,.14);color:var(--rose);border:1px solid rgba(244,63,94,.2)}
-.p-indraft,.pIndraft,.pIn-Draft{background:rgba(139,92,246,.14);color:var(--purple);border:1px solid rgba(139,92,246,.2)}
-.p-resolved,.pResolved{background:rgba(16,185,129,.14);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+/* CHART BARS */
+.hbar-list{display:flex;flex-direction:column;gap:11px}
+.hbar-row{display:flex;align-items:center;gap:12px}
+.hbar-label{font-size:12px;color:var(--text);min-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.hbar-label.short{min-width:100px}
+.hbar-track{flex:1;height:8px;border-radius:4px;background:var(--border);overflow:hidden}
+.hbar-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.hbar-val{font-size:12px;font-weight:700;color:var(--muted);min-width:44px;text-align:right}
 
-/* PROGRESS BAR */
-.pbar-row{margin-bottom:12px}
-.pbar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
-.pbar-name{color:var(--muted2);font-weight:500}
-.pbar-val{color:var(--text);font-weight:700;font-family:'JetBrains Mono',monospace;font-size:11px}
-.pbar-track{height:7px;background:var(--s3);border-radius:4px;overflow:hidden}
-.pbar-fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+/* VERTICAL BARS */
+.vbar-wrap{display:flex;align-items:flex-end;gap:8px;height:160px;overflow-x:auto;padding-bottom:4px}
+.vbar-col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:40px}
+.vbar-fill{width:36px;border-radius:5px 5px 0 0;transition:height .4s}
+.vbar-val{font-size:10px;color:var(--muted);font-weight:600}
+.vbar-lbl{font-size:9px;color:var(--muted);text-align:center;white-space:nowrap;max-width:46px;overflow:hidden;text-overflow:ellipsis}
 
 /* TABLE */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-thead tr{background:rgba(255,255,255,.02)}
-th{padding:9px 14px;text-align:left;font-size:9.5px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--border)}
-td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.03);white-space:nowrap}
-tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:rgba(255,255,255,.02)}
-.empty-row{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border);background:var(--surface2)}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface2)}
+.tbl tfoot td{background:var(--surface2);font-weight:700;border-top:2px solid var(--border);border-bottom:none}
 
-/* LEGEND ROW */
-.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
-.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted2)}
-.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-blue{background:#eff2ff;color:#4f6ef7}
+.b-green{background:#f0fdf4;color:#16a34a}
+.b-orange{background:#fff7ed;color:#ea580c}
+.b-red{background:#fef2f2;color:#dc2626}
+.b-purple{background:#f5f3ff;color:#7c3aed}
+.b-gray{background:#f3f4f6;color:#6b7280}
 
-/* STAT ROW */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.stat-item{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center}
-.stat-item-val{font-size:22px;font-weight:800;line-height:1;margin-bottom:3px}
-.stat-item-lbl{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px}
+/* PILLS */
+.pill-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.pill{background:#eff2ff;color:#4f6ef7;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:600;font-family:monospace}
 
-/* TODAY HIGHLIGHT */
-.today-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.today-card{background:linear-gradient(135deg,var(--s1),var(--s2));border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center;position:relative;overflow:hidden}
-.today-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,.02))}
-.today-num{font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1;margin-bottom:3px}
-.today-lbl{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px}
+/* RANK */
+.rnk{width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.r1{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff}
+.r2{background:linear-gradient(135deg,#d1d5db,#9ca3af);color:#fff}
+.r3{background:linear-gradient(135deg,#c97d4e,#b45309);color:#fff}
+.rn{background:#f3f4f6;color:#9ca3af}
 
-/* MODAL */
-.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.ov.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;width:90%;max-width:700px;max-height:90vh;overflow-y:auto}
-.modal-title{font-size:18px;font-weight:800;margin-bottom:6px}
-.modal-sub{font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:16px}
-.hint-box{background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.18);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--muted2);margin-bottom:16px;line-height:1.8}
-.hint-box code{background:rgba(59,130,246,.15);color:var(--blue);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace}
-textarea{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:9px;font-size:12px;font-family:'JetBrains Mono',monospace;resize:vertical;min-height:110px;outline:none;transition:border-color .18s}
-textarea:focus{border-color:var(--blue)}
-.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+/* SEARCH */
+.search{padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text);background:var(--surface2);outline:none;width:220px}
+.search:focus{border-color:var(--accent)}
 
-/* DIVIDER */
-.section-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;margin-bottom:12px;display:flex;align-items:center;gap:10px}
-.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:780px){.g2{grid-template-columns:1fr}}
 
-@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(2,1fr)}.analytics-grid{grid-template-columns:1fr}.analytics-grid.four{grid-template-columns:1fr 1fr}}
-@media(max-width:700px){.kpi-row{grid-template-columns:1fr 1fr}.today-row{grid-template-columns:1fr 1fr}.tabbar{flex-wrap:wrap}}
+/* PANEL */
+.panel{display:none}.panel.active{display:block}
+
+/* DONUT */
+.donut-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.legend{display:flex;flex-direction:column;gap:8px;flex:1}
+.legend-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* PROGRESS RING */
+.ring-label{font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
-<div class="app">
 
-<!-- NAV -->
 <nav class="nav">
-  <div class="nav-left">
-    <div class="nav-logo">🌐</div>
+  <div class="nav-brand">
+    <div class="icon">🎫</div>
     <div>
-      <div class="nav-title">Website <span>Review Tracker</span></div>
+      <span>Website Tracker</span>
+      <small>Catalog Support Dashboard</small>
     </div>
-    <div class="nav-badge" id="navBadge">Connecting...</div>
   </div>
-  <div class="nav-right">
-    <div class="clock-box" id="clock">—</div>
-    <button class="nav-btn nb-ghost" onclick="openImport()">📋 Paste Data</button>
-    <button class="nav-btn nb-ghost" onclick="refreshData()">↺ Refresh</button>
+  <div class="tabs">
+    <div class="tab active" onclick="go('overview')">Overview</div>
+    <div class="tab" onclick="go('date')">📅 Date-Wise</div>
+    <div class="tab" onclick="go('enterprise')">🏢 Enterprise</div>
+    <div class="tab" onclick="go('csm')">👤 CSM-Wise</div>
+    <div class="tab" onclick="go('status')">📊 Status</div>
   </div>
 </nav>
 
-<!-- CONTENT -->
-<div class="content">
+<div class="main">
 
-  <!-- SHEET SELECTOR -->
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-    <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Sheet Tab:</span>
-    <div style="display:flex;gap:4px;background:var(--s1);padding:3px;border-radius:8px;border:1px solid var(--border)">
-      <button id="sheetBtn1" onclick="switchSheet(1)" style="padding:5px 16px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;background:var(--blue);color:#fff;transition:all .18s">🎫 Tickets</button>
-      <button id="sheetBtn2" onclick="switchSheet(2)" style="padding:5px 16px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;background:transparent;color:var(--muted);transition:all .18s">🌐 Website Dashboard Meta</button>
-    </div>
-    <span id="sheetStatus" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"></span>
+<!-- OVERVIEW -->
+<div class="panel active" id="panel-overview">
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-val" style="color:#4f6ef7">7,465</div><div class="kpi-label">Total Rows</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#7c3aed">50</div><div class="kpi-label">Unique Tickets</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#ea580c">46</div><div class="kpi-label">Enterprises</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#16a34a">13</div><div class="kpi-label">CSM Members</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#ca8a04">19</div><div class="kpi-label">Active Days</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#16a34a">96</div><div class="kpi-label">Resolved</div></div>
   </div>
 
-  <!-- TABS -->
-  <div class="tabbar">
-    <button class="tb on" onclick="switchTab('analytics',this)">📊 Analytics</button>
-    <button class="tb" onclick="switchTab('daily',this)">📅 Daily</button>
-    <button class="tb" onclick="switchTab('enterprise',this)">🏢 Enterprise</button>
-    <button class="tb" onclick="switchTab('rooftop',this)">🏠 Rooftop</button>
-    <button class="tb" onclick="switchTab('table',this)">📋 All Tickets</button>
-  </div>
-
-  <!-- FILTERS -->
-  <div class="filterbar">
-    <div class="fg"><span class="fl">From Date</span><input type="date" id="fFrom" onchange="render()"></div>
-    <div class="fg"><span class="fl">To Date</span><input type="date" id="fTo" onchange="render()"></div>
-    <div class="fg"><span class="fl">Status</span><select id="fStatus" onchange="render()" style="min-width:130px"><option value="">All Statuses</option></select></div>
-    <div class="fg"><span class="fl">Category</span><select id="fCat" onchange="render()" style="min-width:130px"><option value="">All Categories</option></select></div>
-    <div class="fg"><span class="fl">Enterprise</span><select id="fEnt" onchange="render()" style="min-width:160px"><option value="">All Enterprises</option></select></div>
-    <div class="fg"><span class="fl">CSM</span><select id="fCsm" onchange="render()" style="min-width:120px"><option value="">All CSMs</option></select></div>
-    <div class="fg"><span class="fl">Search VIN / Ticket</span><input type="text" id="fSearch" placeholder="Search anything..." oninput="render()"></div>
-    <div class="fg" style="justify-content:flex-end"><span class="fl">&nbsp;</span><button class="nav-btn nb-ghost" onclick="resetF()">↺ Reset</button></div>
-  </div>
-
-  <!-- ═══════════ ANALYTICS TAB ═══════════ -->
-  <div id="tab-analytics">
-
-    <!-- KPI ROW 1 -->
-    <div class="kpi-row">
-      <div class="kpi" style="border-top:3px solid var(--blue)">
-        <div class="kpi-glow" style="background:var(--blue)"></div>
-        <div class="kpi-icon">🎫</div>
-        <div class="kpi-label">Total Tickets</div>
-        <div class="kpi-value" style="color:var(--blue)" id="k-total">—</div>
-        <div class="kpi-sub" id="k-total-s">Loading...</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--cyan)">
-        <div class="kpi-glow" style="background:var(--cyan)"></div>
-        <div class="kpi-icon">🚗</div>
-        <div class="kpi-label">Unique VINs</div>
-        <div class="kpi-value" style="color:var(--cyan)" id="k-vins">—</div>
-        <div class="kpi-sub">Distinct stock/VIN</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--green)">
-        <div class="kpi-glow" style="background:var(--green)"></div>
-        <div class="kpi-icon">✅</div>
-        <div class="kpi-label">Resolved / Closed</div>
-        <div class="kpi-value" style="color:var(--green)" id="k-closed">—</div>
-        <div class="kpi-sub" id="k-closed-s">—</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--amber)">
-        <div class="kpi-glow" style="background:var(--amber)"></div>
-        <div class="kpi-icon">⏳</div>
-        <div class="kpi-label">Open / Active</div>
-        <div class="kpi-value" style="color:var(--amber)" id="k-open">—</div>
-        <div class="kpi-sub" id="k-open-s">—</div>
-      </div>
-    </div>
-
-    <div class="kpi-row">
-      <div class="kpi" style="border-top:3px solid var(--rose)">
-        <div class="kpi-glow" style="background:var(--rose)"></div>
-        <div class="kpi-icon">🔴</div>
-        <div class="kpi-label">Escalated</div>
-        <div class="kpi-value" style="color:var(--rose)" id="k-esc">—</div>
-        <div class="kpi-sub">Needs immediate attention</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--purple)">
-        <div class="kpi-glow" style="background:var(--purple)"></div>
-        <div class="kpi-icon">🏢</div>
-        <div class="kpi-label">Enterprises</div>
-        <div class="kpi-value" style="color:var(--purple)" id="k-ent">—</div>
-        <div class="kpi-sub">Active enterprise accounts</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--cyan)">
-        <div class="kpi-glow" style="background:var(--cyan)"></div>
-        <div class="kpi-icon">🏠</div>
-        <div class="kpi-label">Rooftops</div>
-        <div class="kpi-value" style="color:var(--cyan)" id="k-roof">—</div>
-        <div class="kpi-sub">Active locations</div>
-      </div>
-      <div class="kpi" style="border-top:3px solid var(--blue)">
-        <div class="kpi-glow" style="background:var(--blue)"></div>
-        <div class="kpi-icon">📅</div>
-        <div class="kpi-label">Today's Tickets</div>
-        <div class="kpi-value" style="color:var(--blue)" id="k-today">—</div>
-        <div class="kpi-sub" id="k-today-s">—</div>
-      </div>
-    </div>
-
-    <!-- CHART ROW 1 -->
-    <div class="section-label">Volume & Distribution</div>
-    <div class="analytics-grid" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">📈</span>Ticket Trend — Last 30 Days</span><span class="card-badge" id="trendBadge">—</span></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="cTrend" height="220"></canvas></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">🔵</span>Status Breakdown</span></div>
-        <div class="card-body">
-          <div class="chart-wrap"><canvas id="cStatus" height="170"></canvas></div>
-          <div class="legend" id="legStatus"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">📊</span>Status Distribution</span></div>
-        <div class="card-body" id="statusBars"></div>
-      </div>
-    </div>
-
-    <!-- CHART ROW 2 -->
-    <div class="section-label">Category & People</div>
-    <div class="analytics-grid" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">🏷</span>Tickets by Category</span></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="cCat" height="220"></canvas></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">👤</span>Top CSMs by Volume</span></div>
-        <div class="card-body" id="csmBars"></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">🔨</span>Top Done By</span></div>
-        <div class="card-body" id="doneBars"></div>
-      </div>
-    </div>
-
-    <!-- CHART ROW 3 -->
-    <div class="section-label">Enterprise Performance</div>
-    <div class="analytics-grid wide" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">🏢</span>Enterprise Summary</span><span class="card-badge" id="entBadge">—</span></div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Enterprise</th><th>Tickets</th><th>VINs</th><th>Open</th><th>Resolved</th><th>Escalated</th><th>Resolution%</th></tr></thead>
-            <tbody id="entTbl"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title"><span class="card-title-icon">🏆</span>Enterprise Ticket Share</span></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="cEnt" height="220"></canvas></div></div>
-      </div>
-    </div>
-
-  </div><!-- /analytics -->
-
-  <!-- ═══════════ DAILY TAB ═══════════ -->
-  <div id="tab-daily" style="display:none">
-    <div class="today-row">
-      <div class="today-card" style="border-top:3px solid var(--blue)">
-        <div class="today-num" style="color:var(--blue)" id="d-t">0</div>
-        <div class="today-lbl">Today's Tickets</div>
-      </div>
-      <div class="today-card" style="border-top:3px solid var(--cyan)">
-        <div class="today-num" style="color:var(--cyan)" id="d-v">0</div>
-        <div class="today-lbl">Unique VINs Today</div>
-      </div>
-      <div class="today-card" style="border-top:3px solid var(--green)">
-        <div class="today-num" style="color:var(--green)" id="d-c">0</div>
-        <div class="today-lbl">Resolved Today</div>
-      </div>
-      <div class="today-card" style="border-top:3px solid var(--amber)">
-        <div class="today-num" style="color:var(--amber)" id="d-o">0</div>
-        <div class="today-lbl">Still Open Today</div>
-      </div>
-    </div>
-    <div class="analytics-grid wide" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">📅 Today's Ticket List</span><span class="card-badge" id="d-badge">0</span></div>
-        <div class="tbl-wrap"><table><thead><tr id="dailyHead"></tr></thead><tbody id="dailyTbl"></tbody></table></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title">📊 Today's Status Mix</span></div>
-        <div class="card-body">
-          <div class="chart-wrap"><canvas id="cDailyStatus" height="200"></canvas></div>
-          <div class="legend" id="legDailyStatus"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════ ENTERPRISE TAB ═══════════ -->
-  <div id="tab-enterprise" style="display:none">
-    <div class="analytics-grid wide" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">📊 Tickets per Enterprise</span></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="cEntBar" height="260"></canvas></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title">🏆 VINs per Enterprise</span></div>
-        <div class="card-body" id="entVinBars"></div>
-      </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#4f6ef7"></span>Top 8 Enterprises by Volume</div></div>
+      <div class="card-body"><div class="hbar-list" id="ov-ent"></div></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-title">🏢 Full Enterprise Breakdown</span><span class="card-badge" id="entBadge2">—</span></div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Enterprise</th><th>Enterprise ID</th><th>Total Tickets</th><th>Unique VINs</th><th>Open</th><th>Pending</th><th>In Progress</th><th>Resolved</th><th>Escalated</th><th>Resolution %</th></tr></thead>
-          <tbody id="entTbl2"></tbody>
-        </table>
-      </div>
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#7c3aed"></span>CSM Workload</div></div>
+      <div class="card-body"><div class="hbar-list" id="ov-csm"></div></div>
     </div>
   </div>
-
-  <!-- ═══════════ ROOFTOP TAB ═══════════ -->
-  <div id="tab-rooftop" style="display:none">
-    <div class="analytics-grid wide" style="margin-bottom:20px">
-      <div class="card">
-        <div class="card-head"><span class="card-title">🏠 Tickets per Rooftop (Top 15)</span></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="cRoofBar" height="280"></canvas></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-title">📊 Rooftop Status Mix</span></div>
-        <div class="card-body" id="roofStatBars"></div>
-      </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#ea580c"></span>Daily Row Volume</div></div>
+      <div class="card-body"><div class="vbar-wrap" id="ov-date"></div></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-title">🏠 Full Rooftop Breakdown</span><span class="card-badge" id="roofBadge">—</span></div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Rooftop</th><th>Rooftop ID</th><th>Enterprise</th><th>Tickets</th><th>Unique VINs</th><th>Open</th><th>Resolved</th><th>Escalated</th></tr></thead>
-          <tbody id="roofTbl"></tbody>
-        </table>
-      </div>
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#16a34a"></span>Top Statuses</div></div>
+      <div class="card-body"><div class="hbar-list" id="ov-status"></div></div>
     </div>
-  </div>
-
-  <!-- ═══════════ ALL TICKETS TAB ═══════════ -->
-  <div id="tab-table" style="display:none">
-    <div class="card">
-      <div class="card-head">
-        <span class="card-title">📋 All Tickets</span>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="card-badge" id="allBadge">—</span>
-          <button class="nav-btn nb-ghost" onclick="exportCSV()" style="font-size:11px;height:28px;padding:0 12px">⬇ Export CSV</button>
-        </div>
-      </div>
-      <div class="tbl-wrap"><table><thead><tr id="allHead"></tr></thead><tbody id="allTbl"></tbody></table></div>
-    </div>
-  </div>
-
-</div><!-- content -->
-</div><!-- app -->
-
-<!-- PASTE MODAL (backup only) -->
-<div class="ov" id="impModal">
-<div class="modal">
-  <div class="modal-title">📋 Manual Data Load</div>
-  <div class="modal-sub">Use this if auto-fetch isn't working on your network. This is a one-time paste — data loads instantly.</div>
-  <div class="hint-box">
-    <strong style="color:var(--text)">Quick steps:</strong><br>
-    1. Open your Google Sheet → <code>File → Download → CSV</code><br>
-    2. Open the .csv in <code>Notepad</code> → <code>Ctrl+A</code> → <code>Ctrl+C</code><br>
-    3. Paste below and click <strong style="color:var(--green)">Load Data</strong>
-  </div>
-  <textarea id="pasteArea" placeholder="Paste your CSV data here..."></textarea>
-  <div class="modal-actions">
-    <button class="nav-btn nb-ghost" onclick="closeImport()">Cancel</button>
-    <button class="nav-btn nb-blue" onclick="doImport()">✓ Load Data</button>
   </div>
 </div>
+
+<!-- DATE -->
+<div class="panel" id="panel-date">
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="dot" style="background:#4f6ef7"></span>Daily Volume — Bar Chart</div></div>
+    <div class="card-body"><div class="vbar-wrap" id="dt-chart" style="height:200px"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="dot" style="background:#ea580c"></span>Date-Wise Breakdown</div></div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Date</th><th>Unique Tickets</th><th>Total Rows</th><th>Share</th><th>Volume</th></tr></thead>
+        <tbody id="dt-tbody"></tbody>
+        <tfoot><tr><td colspan="2">Total</td><td>50</td><td>7,465</td><td>100%</td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
 </div>
+
+<!-- ENTERPRISE -->
+<div class="panel" id="panel-enterprise">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="dot" style="background:#7c3aed"></span>All 46 Enterprises</div>
+      <input class="search" placeholder="Search enterprise…" oninput="filterEnt(this.value)" id="ent-search">
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Rank</th><th>Enterprise Name</th><th>Unique Tickets</th><th>Total Rows</th><th>% Share</th><th>Ticket Numbers</th></tr></thead>
+        <tbody id="ent-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CSM -->
+<div class="panel" id="panel-csm">
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#ea580c"></span>Rows per CSM</div></div>
+      <div class="card-body"><div class="hbar-list" id="csm-rows"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#16a34a"></span>Unique Tickets per CSM</div></div>
+      <div class="card-body"><div class="hbar-list" id="csm-tickets"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="dot" style="background:#4f6ef7"></span>Full CSM Breakdown</div></div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Rank</th><th>CSM Name</th><th>Unique Tickets</th><th>Total Rows</th><th>% of Total</th><th>Ticket Numbers</th></tr></thead>
+        <tbody id="csm-tbody"></tbody>
+        <tfoot><tr><td colspan="2">Grand Total</td><td>50 unique</td><td>7,247</td><td>100%</td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div class="panel" id="panel-status">
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#dc2626"></span>Top 10 Statuses</div></div>
+      <div class="card-body"><div class="hbar-list" id="st-list"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="dot" style="background:#ca8a04"></span>Category Split</div></div>
+      <div class="card-body"><div class="hbar-list" id="cat-list"></div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
 
 <script>
-var SHEETS={
-  1:{name:'Tickets'},
-  2:{name:'Website Dashboard Meta'}
-};
-var activeSheet=1;
-var tickets=[],headers=[],curTab='analytics',charts={};
-var TODAY=(function(){var d=new Date();return d.toISOString().split('T')[0];})();
+const DATES=[{"date": "07-Apr-2026", "tickets": 3, "rows": 239}, {"date": "08-Apr-2026", "tickets": 2, "rows": 172}, {"date": "09-Apr-2026", "tickets": 2, "rows": 152}, {"date": "10-Apr-2026", "tickets": 2, "rows": 123}, {"date": "13-Apr-2026", "tickets": 4, "rows": 261}, {"date": "16-Apr-2026", "tickets": 2, "rows": 77}, {"date": "17-Apr-2026", "tickets": 4, "rows": 166}, {"date": "19-Apr-2026", "tickets": 1, "rows": 43}, {"date": "20-Apr-2026", "tickets": 1, "rows": 28}, {"date": "21-Apr-2026", "tickets": 2, "rows": 74}, {"date": "22-Apr-2026", "tickets": 2, "rows": 107}, {"date": "23-Apr-2026", "tickets": 4, "rows": 106}, {"date": "24-Apr-2026", "tickets": 2, "rows": 264}, {"date": "27-Apr-2026", "tickets": 2, "rows": 100}, {"date": "28-Apr-2026", "tickets": 3, "rows": 163}, {"date": "29-Apr-2026", "tickets": 3, "rows": 353}, {"date": "01-May-2026", "tickets": 3, "rows": 358}, {"date": "02-May-2026", "tickets": 2, "rows": 310}, {"date": "04-May-2026", "tickets": 3, "rows": 407}];
+const ENTS=[{"name": "Sansone Jr's Auto Group", "tickets": 2, "rows": 1278, "ticketList": ["15813", "16249"]}, {"name": "Toronto Honda", "tickets": 1, "rows": 1056, "ticketList": ["15828"]}, {"name": "Asbury Automotive Group", "tickets": 2, "rows": 1034, "ticketList": ["15453", "Prashant"]}, {"name": "Starling Chevrolet", "tickets": 1, "rows": 309, "ticketList": ["15273"]}, {"name": "H&K Chevrolet Family Auto", "tickets": 2, "rows": 273, "ticketList": ["14662", "16443"]}, {"name": "Team Nissan Inc", "tickets": 1, "rows": 259, "ticketList": ["Praveen"]}, {"name": "Car Hop Auto Sales & Finance", "tickets": 1, "rows": 248, "ticketList": ["15206"]}, {"name": "Preston Motor Automotive Group", "tickets": 1, "rows": 245, "ticketList": ["15805"]}, {"name": "Lee Group", "tickets": 2, "rows": 240, "ticketList": ["15266 295 296", "15817"]}, {"name": "Greenway Auto Group 2", "tickets": 1, "rows": 237, "ticketList": ["14347"]}, {"name": "Gettel Automotive Group", "tickets": 4, "rows": 229, "ticketList": ["14354", "14526", "14753", "14770"]}, {"name": "Amigo Auto Group", "tickets": 1, "rows": 172, "ticketList": ["16208"]}, {"name": "Getcarllc", "tickets": 1, "rows": 171, "ticketList": ["14584"]}, {"name": "McCurley Dealerships", "tickets": 1, "rows": 152, "ticketList": ["15731"]}, {"name": "Towne Ford Inc", "tickets": 1, "rows": 149, "ticketList": ["16615"]}, {"name": "Charlie Clark Hyundai", "tickets": 1, "rows": 121, "ticketList": ["15209"]}, {"name": "Certified Autoplex Inc.", "tickets": 1, "rows": 111, "ticketList": ["15395"]}, {"name": "Keffer Automotive", "tickets": 1, "rows": 109, "ticketList": ["14307"]}, {"name": "Covert Auto Group", "tickets": 2, "rows": 104, "ticketList": ["14914", "15058"]}, {"name": "Yoder Family of Companies", "tickets": 1, "rows": 101, "ticketList": ["Praveen"]}, {"name": "Keffer Inc.", "tickets": 0, "rows": 87, "ticketList": []}, {"name": "Car Bargain", "tickets": 1, "rows": 67, "ticketList": ["14911"]}, {"name": "Deery Brothers Ford", "tickets": 1, "rows": 67, "ticketList": ["14304"]}, {"name": "Capital Chevrolet Inc", "tickets": 1, "rows": 60, "ticketList": ["15092"]}, {"name": "Knapp Chevrolet.Inc", "tickets": 1, "rows": 56, "ticketList": ["14499"]}, {"name": "Prestige Auto Sales", "tickets": 1, "rows": 54, "ticketList": ["15374"]}, {"name": "Amigo Auto Group, Inc.", "tickets": 2, "rows": 51, "ticketList": ["14501", "15212"]}, {"name": "Car Central Auto", "tickets": 1, "rows": 50, "ticketList": ["14217"]}, {"name": "MP auto Sales LLC DBA Carizona", "tickets": 1, "rows": 47, "ticketList": ["15151"]}, {"name": "Elite Auto Marketing Solutions", "tickets": 1, "rows": 44, "ticketList": ["15083"]}, {"name": "Wiz Leasing Inc", "tickets": 1, "rows": 39, "ticketList": ["14599"]}, {"name": "Galleria BMW", "tickets": 1, "rows": 37, "ticketList": ["14486"]}, {"name": "Olson Chevrolet", "tickets": 1, "rows": 33, "ticketList": ["14612"]}, {"name": "Asbury Automotive Management L.L.C", "tickets": 1, "rows": 28, "ticketList": ["15024"]}, {"name": "Graff Auto Campus", "tickets": 1, "rows": 28, "ticketList": ["14912"]}, {"name": "Renny Bettan", "tickets": 1, "rows": 18, "ticketList": ["14590"]}, {"name": "New Deal Pre-Owned Autos", "tickets": 1, "rows": 15, "ticketList": ["15464"]}, {"name": "The Ford Store Morgan Hill", "tickets": 1, "rows": 13, "ticketList": ["15072"]}, {"name": "Charlie Clark", "tickets": 1, "rows": 12, "ticketList": ["15209"]}, {"name": "Gettel Automotive group", "tickets": 1, "rows": 12, "ticketList": ["14646"]}, {"name": "Perkins Motors", "tickets": 1, "rows": 12, "ticketList": ["14390"]}, {"name": "Bentley jacksonville", "tickets": 1, "rows": 10, "ticketList": ["16170"]}, {"name": "Korf Motors", "tickets": 1, "rows": 10, "ticketList": ["Praveen"]}, {"name": "Jaguar Land Rover San Juan", "tickets": 1, "rows": 9, "ticketList": ["Praveen"]}, {"name": "Olson Chevrolet Enterprise", "tickets": 1, "rows": 5, "ticketList": ["15446"]}, {"name": "Lee Hyundai", "tickets": 1, "rows": 3, "ticketList": ["15703"]}];
+const CSMS=[{"name": "Abhijeet", "tickets": 6, "rows": 1751, "ticketList": ["14914", "15058", "15092", "15273", "15813", "16249"]}, {"name": "Zeeshana", "tickets": 12, "rows": 1551, "ticketList": ["14486", "14501", "15209", "15212", "15266 295 296", "15703", "15731", "15805", "15817", "16208", "16443", "Praveen"]}, {"name": "Prabha", "tickets": 5, "rows": 1495, "ticketList": ["14307", "14347", "15024", "15453", "Prashant"]}, {"name": "Manpreet Kaur", "tickets": 5, "rows": 435, "ticketList": ["14584", "14599", "14911", "15151", "15395"]}, {"name": "Jaspreet", "tickets": 7, "rows": 335, "ticketList": ["14499", "14526", "14646", "14753", "14770", "15072", "16615"]}, {"name": "Puneet Sharma", "tickets": 1, "rows": 248, "ticketList": ["15206"]}, {"name": "Vishal", "tickets": 3, "rows": 205, "ticketList": ["14217", "15374", "Praveen"]}, {"name": "Jaspreet Kaur", "tickets": 1, "rows": 124, "ticketList": ["14354"]}, {"name": "Manpreet", "tickets": 1, "rows": 67, "ticketList": ["14304"]}, {"name": "Vedant Choudhary", "tickets": 1, "rows": 44, "ticketList": ["15083"]}, {"name": "Dexter David", "tickets": 1, "rows": 33, "ticketList": ["14662"]}, {"name": "Ankur", "tickets": 1, "rows": 28, "ticketList": ["14912"]}, {"name": "Vishal Singh", "tickets": 1, "rows": 18, "ticketList": ["14590"]}];
+const STATUS={"Raw": 1922, "Stock": 1613, "Incorrect Sequence": 1280, "Ok": 421, "Ok on both console & website": 374, "not found": 177, "Tilt": 174, "ok on console": 147, "Sold": 117, "Thumbnail issue": 110};
+const CAT={"New": 2678, "Used": 2497, "Both": 1999};
+const GRAND=7465;
 
-function switchSheet(num){
-  activeSheet=num;
-  [1,2].forEach(function(i){
-    var b=document.getElementById('sheetBtn'+i);
-    b.style.background=i===num?'var(--blue)':'transparent';
-    b.style.color=i===num?'#fff':'var(--muted)';
-  });
-  tickets=[];headers=[];
-  document.getElementById('sheetStatus').textContent='Loading '+SHEETS[num].name+'...';
-  refreshData();
+const PALETTE=['#4f6ef7','#7c3aed','#ea580c','#16a34a','#ca8a04','#0891b2','#be185d','#059669','#d97706','#6366f1'];
+
+function go(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['overview','date','enterprise','csm','status'][i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
 }
 
-function isClosed(s){return/closed|resolved|done|complete|approved|published|live/i.test(s||'');}
-function isEscalated(s){return/escalat/i.test(s||'');}
-function isPending(s){return/pending|waiting|hold|review/i.test(s||'');}
-function isInProgress(s){return/in.progress|wip|working/i.test(s||'');}
-function isDraft(s){return/draft/i.test(s||'');}
-function isOpen(s){var v=s||'';return v!==''&&!isClosed(v)&&!isEscalated(v)&&!isPending(v)&&!isInProgress(v)&&!isDraft(v);}
-
-function statusColor(s){
-  if(isClosed(s))return'#10b981';
-  if(isEscalated(s))return'#f43f5e';
-  if(isPending(s))return'#3b82f6';
-  if(isInProgress(s))return'#06b6d4';
-  if(isDraft(s))return'#8b5cf6';
-  if(isOpen(s))return'#f59e0b';
-  return'#64748b';
+function hbars(elId, data, maxVal, nameKey, valKey, colorIdx=0){
+  const el=document.getElementById(elId);
+  el.innerHTML=data.map((d,i)=>{
+    const pct=Math.round((d[valKey]/maxVal)*100);
+    const c=PALETTE[(i+colorIdx)%PALETTE.length];
+    return `<div class="hbar-row">
+      <div class="hbar-label" title="${d[nameKey]}">${d[nameKey]}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <div class="hbar-val" style="color:${c}">${d[valKey].toLocaleString()}</div>
+    </div>`;
+  }).join('');
 }
 
-var COL_MAP={
-  'ticket no':'tno','ticket':'tno','ticket number':'tno',
-  'date':'date',
-  'enterprise name':'ent','enterprise':'ent',
-  'enterprise id':'eid',
-  'rooftop':'roof',
-  'rooftop id':'rid',
-  'stock/vin':'vin','vin':'vin','stock':'vin','stock / vin':'vin',
-  'category':'cat','catagory':'cat',
-  'status':'stat','website status':'stat',
-  'done by':'done','doneby':'done',
-  'csm':'csm',
-  'review through':'rev',
-  'remarks':'rem'
-};
-var CAT_COLORS=['#3b82f6','#06b6d4','#a78bfa','#f59e0b','#10b981','#f43f5e','#ec4899','#14b8a6','#f97316','#84cc16','#e879f9','#38bdf8'];
-
-function tick(){
-  var n=new Date(),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';
-  h=h%12||12;
-  document.getElementById('clock').textContent=D[n.getDay()]+', '+M[n.getMonth()]+' '+n.getDate()+' · '+h+':'+(m<10?'0':'')+m+' '+ap;
-}
-setInterval(tick,1000);tick();
-
-function parseCSV(text){
-  var rows=[],line=[],cur='',inQ=false;
-  for(var i=0;i<text.length;i++){
-    var c=text[i];
-    if(c==='"'){if(inQ&&text[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
-    else if(c===','&&!inQ){line.push(cur.trim());cur='';}
-    else if((c==='\n'||c==='\r')&&!inQ){
-      line.push(cur.trim());
-      if(line.some(function(v){return v!=='';}))rows.push(line);
-      line=[];cur='';
-      if(c==='\r'&&text[i+1]==='\n')i++;
-    }else{cur+=c;}
-  }
-  line.push(cur.trim());
-  if(line.some(function(v){return v!=='';}))rows.push(line);
-  return rows;
+function vbars(elId, data, maxVal, labelKey, valKey, colorIdx=0){
+  const el=document.getElementById(elId);
+  el.innerHTML=data.map((d,i)=>{
+    const h=Math.max(6,Math.round((d[valKey]/maxVal)*160));
+    const c=PALETTE[(i+colorIdx)%PALETTE.length];
+    const lbl=(d[labelKey]||'').replace('-2026','').replace(/-?(Apr|May)/,'');
+    return `<div class="vbar-col">
+      <div class="vbar-val" style="color:${c}">${d[valKey]}</div>
+      <div class="vbar-fill" style="height:${h}px;background:${c}"></div>
+      <div class="vbar-lbl">${lbl}</div>
+    </div>`;
+  }).join('');
 }
 
-function processRows(rows){
-  if(!rows||rows.length<2)return false;
-  headers=rows[0].map(function(h){return h.replace(/^"|"$/g,'');});
-  var colIdx={};
-  headers.forEach(function(h,i){
-    var k=COL_MAP[h.toLowerCase().trim()];
-    if(k&&colIdx[k]===undefined)colIdx[k]=i;
-  });
-  tickets=[];
-  for(var i=1;i<rows.length;i++){
-    var row=rows[i];
-    if(row.every(function(c){return !c;}))continue;
-    var t={_raw:row.map(function(v){return v.replace(/^"|"$/g,'');})};
-    Object.keys(colIdx).forEach(function(k){t[k]=(row[colIdx[k]]||'').trim().replace(/^"|"$/g,'');});
-    tickets.push(t);
-  }
-  buildDropdowns();
-  var now=new Date();
-  var badge=document.getElementById('navBadge');
-  badge.textContent='✓ '+tickets.length.toLocaleString()+' rows · '+SHEETS[activeSheet].name;
-  badge.style.cssText='background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-  document.getElementById('sheetStatus').textContent='Updated '+now.toLocaleTimeString();
-  render();
-  return true;
+function rankCls(i){return i===0?'r1':i===1?'r2':i===2?'r3':'rn'}
+
+function buildDate(){
+  const max=Math.max(...DATES.map(d=>d.rows));
+  vbars('dt-chart',DATES,max,'date','rows',2);
+  vbars('ov-date',DATES,max,'date','rows',2);
+  document.getElementById('dt-tbody').innerHTML=DATES.map((d,i)=>{
+    const pct=((d.rows/GRAND)*100).toFixed(1);
+    const pw=Math.round((d.rows/max)*100);
+    const c=PALETTE[i%PALETTE.length];
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td style="font-weight:600">${d.date}</td>
+      <td><span class="badge b-blue">${d.tickets} ticket${d.tickets>1?'s':''}</span></td>
+      <td style="font-weight:700;color:${c}">${d.rows.toLocaleString()}</td>
+      <td style="color:var(--muted);font-size:12px">${pct}%</td>
+      <td><div class="hbar-track" style="max-width:100px"><div class="hbar-fill" style="width:${pw}%;background:${c}"></div></div></td>
+    </tr>`;
+  }).join('');
 }
 
-var APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbxj7Mth9csvqOzifYk-FmYDET44YuU8yXZDJjOjGFLaTAmXG1Lf9RUyqeV0UkgVC7LF/exec';
-
-function refreshData(){
-  var sheetName=SHEETS[activeSheet].name;
-  var url=APPS_SCRIPT_URL+'?sheet='+encodeURIComponent(sheetName)+'&t='+Date.now();
-  setStatus('loading','Fetching live data from Google Sheets...');
-  // follow:manual handles Google's redirect for Apps Script
-  fetch(url, {redirect:'follow', mode:'cors'})
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.text();
-    })
-    .then(function(txt){
-      // Apps Script sometimes wraps in a redirect page — try to extract JSON
-      var json;
-      try{
-        // Direct JSON
-        json=JSON.parse(txt);
-      } catch(e){
-        // Try to extract JSON from HTML response
-        var match=txt.match(/\{[\s\S]*"rows"[\s\S]*\}/);
-        if(match){json=JSON.parse(match[0]);}
-        else throw new Error('Not JSON: '+txt.substring(0,100));
-      }
-      if(json.error) throw new Error(json.error);
-      if(!json.rows||!json.rows.length) throw new Error('No rows in response');
-      processJSON(json.rows);
-    })
-    .catch(function(err){
-      console.warn('Apps Script fetch failed:',err.message);
-      // Try with no-cors as fallback
-      tryCSVFallback(sheetName);
-    });
+function buildEnt(data){
+  const max=Math.max(...data.map(d=>d.rows));
+  document.getElementById('ent-tbody').innerHTML=data.map((d,i)=>{
+    const pct=((d.rows/GRAND)*100).toFixed(1);
+    const pw=Math.round((d.rows/max)*100);
+    const c=PALETTE[i%PALETTE.length];
+    const pills=d.ticketList.map(t=>`<span class="pill">${t}</span>`).join('');
+    return `<tr>
+      <td><span class="rnk ${rankCls(i)}">${i+1}</span></td>
+      <td style="font-weight:600;max-width:200px" title="${d.name}">${d.name}</td>
+      <td><span class="badge b-purple">${d.tickets}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="hbar-track" style="width:80px"><div class="hbar-fill" style="width:${pw}%;background:${c}"></div></div>
+          <span style="font-weight:700;color:${c}">${d.rows.toLocaleString()}</span>
+        </div>
+      </td>
+      <td style="color:var(--muted);font-size:12px">${pct}%</td>
+      <td><div class="pill-wrap">${pills}</div></td>
+    </tr>`;
+  }).join('');
 }
 
-function tryCSVFallback(sheetName){
-  // Fallback: try CSV via proxy
-  var csvUrl='https://docs.google.com/spreadsheets/d/e/2PACX-1vR21eFk9Na7j2xi6akFDZZHi1h-jHqDBC8N9PL3lYuorDIuoY-3rz2cnv5ZG2I0m7aZWydeQHL_-sJB/pub?gid=0&single=true&output=csv';
-  var proxies=[
-    'https://corsproxy.io/?'+encodeURIComponent(csvUrl),
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(csvUrl)
-  ];
-  tryCSVProxy(proxies, 0);
+function filterEnt(q){
+  buildEnt(ENTS.filter(d=>d.name.toLowerCase().includes(q.toLowerCase())));
 }
 
-function tryCSVProxy(proxies, idx){
-  if(idx>=proxies.length){
-    setStatus('error','');
-    return;
-  }
-  fetch(proxies[idx], {signal:AbortSignal.timeout(8000)})
-    .then(function(r){if(!r.ok)throw new Error('bad');return r.text();})
-    .then(function(txt){
-      if(txt.length<50||txt.indexOf(',')===-1) throw new Error('invalid');
-      if(!processRows(parseCSV(txt))) throw new Error('empty');
-    })
-    .catch(function(){tryCSVProxy(proxies, idx+1);});
+function buildCSM(){
+  const maxR=Math.max(...CSMS.map(d=>d.rows));
+  const maxT=Math.max(...CSMS.map(d=>d.tickets));
+  hbars('ov-csm',CSMS,maxR,'name','rows',1);
+  hbars('csm-rows',CSMS,maxR,'name','rows',2);
+  hbars('csm-tickets',CSMS,maxT,'name','tickets',3);
+  document.getElementById('csm-tbody').innerHTML=CSMS.map((d,i)=>{
+    const pct=((d.rows/GRAND)*100).toFixed(1);
+    const c=PALETTE[i%PALETTE.length];
+    const pills=d.ticketList.map(t=>`<span class="pill">${t}</span>`).join('');
+    return `<tr>
+      <td><span class="rnk ${rankCls(i)}">${i+1}</span></td>
+      <td style="font-weight:700">${d.name}</td>
+      <td style="font-weight:800;font-size:16px;color:${c}">${d.tickets}</td>
+      <td style="font-weight:700;color:${c}">${d.rows.toLocaleString()}</td>
+      <td><span class="badge b-gray">${pct}%</span></td>
+      <td><div class="pill-wrap">${pills}</div></td>
+    </tr>`;
+  }).join('');
 }
 
-function processJSON(rows){
-  if(!rows||!rows.length)return false;
-  headers=Object.keys(rows[0]);
+function buildStatus(){
+  const entries=Object.entries(STATUS).sort((a,b)=>b[1]-a[1]);
+  const maxV=entries[0][1];
+  hbars('ov-status',entries.slice(0,6).map(([k,v])=>({name:k,val:v})),maxV,'name','val',4);
+  document.getElementById('st-list').innerHTML=entries.map(([k,v],i)=>{
+    const pw=Math.round((v/maxV)*100);
+    const c=PALETTE[i%PALETTE.length];
+    return `<div class="hbar-row">
+      <div class="hbar-label" style="min-width:190px" title="${k}">${k}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${pw}%;background:${c}"></div></div>
+      <div class="hbar-val" style="color:${c}">${v.toLocaleString()}</div>
+    </div>`;
+  }).join('');
 
-  tickets=rows.map(function(row){
-    var t={_raw:headers.map(function(h){return row[h]||'';})};
-    // Map each header to internal key
-    headers.forEach(function(h){
-      var k=COL_MAP[h.toLowerCase().trim()];
-      if(k) t[k]=String(row[h]||'').trim();
-    });
-    // Extra safety: try common Ticket No variations directly
-    if(!t.tno){
-      var tnoVal=row['Ticket No']||row['Ticket No.']||row['ticket no']||row['TICKET NO']||row['TicketNo']||row['Ticket']||row['ticket_no']||'';
-      if(tnoVal) t.tno=String(tnoVal).trim();
-    }
-    return t;
-  });
-
-  // Debug: log first ticket to see field mapping
-  if(tickets.length>0){
-    console.log('Sample ticket fields:', Object.keys(tickets[0]));
-    console.log('Sample tno value:', tickets[0].tno);
-    console.log('Sample raw headers:', headers.slice(0,5));
-  }
-
-  buildDropdowns();
-  var now=new Date();
-  var badge=document.getElementById('navBadge');
-  // Count unique ticket numbers for badge
-  var uniqueTnos=new Set(tickets.map(function(t){return t.tno;}).filter(Boolean));
-  badge.textContent='🟢 LIVE · '+uniqueTnos.size.toLocaleString()+' tickets · '+tickets.length.toLocaleString()+' rows';
-  badge.style.cssText='background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-  document.getElementById('sheetStatus').textContent='Auto-updated: '+now.toLocaleTimeString();
-  render();
-  return true;
+  const catEntries=Object.entries(CAT).sort((a,b)=>b[1]-a[1]);
+  const maxC=catEntries[0][1];
+  document.getElementById('cat-list').innerHTML=catEntries.map(([k,v],i)=>{
+    const pw=Math.round((v/maxC)*100);
+    const c=PALETTE[(i+5)%PALETTE.length];
+    return `<div class="hbar-row">
+      <div class="hbar-label short">${k}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${pw}%;background:${c}"></div></div>
+      <div class="hbar-val" style="color:${c}">${v.toLocaleString()}</div>
+    </div>`;
+  }).join('');
 }
 
-function setStatus(type,msg){
-  var badge=document.getElementById('navBadge');
-  var ss=document.getElementById('sheetStatus');
-  if(type==='loading'){
-    badge.textContent='⟳ '+msg;
-    badge.style.cssText='background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-    if(ss)ss.textContent='Connecting to Google Sheets...';
-  } else if(type==='error'){
-    badge.textContent='⚠ Connection failed';
-    badge.style.cssText='background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:#f43f5e;font-size:10px;padding:2px 9px;border-radius:20px;font-family:"JetBrains Mono",monospace;display:flex;align-items:center;gap:5px';
-    if(ss)ss.innerHTML='Could not reach Google Sheets · <a onclick="openImport()" style="color:#3b82f6;cursor:pointer;text-decoration:underline">Load manually</a>';
-  }
+function buildEntOverview(){
+  const max=Math.max(...ENTS.slice(0,8).map(d=>d.rows));
+  hbars('ov-ent',ENTS.slice(0,8),max,'name','rows',0);
 }
 
-function openImport(){document.getElementById('impModal').classList.add('open');}
-function closeImport(){document.getElementById('impModal').classList.remove('open');}
-function doImport(){
-  var raw=document.getElementById('pasteArea').value.trim();
-  if(!raw){alert('Please paste CSV data first.');return;}
-  if(processRows(parseCSV(raw))){
-    closeImport();
-    document.getElementById('pasteArea').value='';
-  }else{
-    alert('Could not read data. Make sure you copied the full CSV.');
-  }
-}
-document.getElementById('impModal').addEventListener('click',function(e){if(e.target===this)closeImport();});
-
-function buildDropdowns(){
-  var stats=[...new Set(tickets.map(function(t){return t.stat;}).filter(Boolean))];
-  var cats=[...new Set(tickets.map(function(t){return t.cat;}).filter(Boolean))];
-  var ents=[...new Set(tickets.map(function(t){return t.ent;}).filter(Boolean))];
-  var csms=[...new Set(tickets.map(function(t){return t.csm;}).filter(Boolean))];
-  var defs=['All Statuses','All Categories','All Enterprises','All CSMs'];
-  ['fStatus','fCat','fEnt','fCsm'].forEach(function(id,i){
-    var el=document.getElementById(id),cur=el.value,opts=[stats,cats,ents,csms][i];
-    el.innerHTML='<option value="">'+defs[i]+'</option>'+opts.map(function(o){
-      return'<option'+(o===cur?' selected':'')+'>'+o+'</option>';
-    }).join('');
-  });
-}
-
-function normalizeDate(d){
-  if(!d)return'';
-  if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d;
-  var m1=/^(\d{1,2})[-\/]([A-Za-z]+)[-\/](\d{4})$/.exec(d);
-  if(m1){
-    var mons={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
-    var mo=mons[m1[2].toLowerCase().slice(0,3)]||'01';
-    return m1[3]+'-'+mo+'-'+(m1[1].length===1?'0':'')+m1[1];
-  }
-  var m2=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(d);
-  if(m2)return m2[3]+'-'+(m2[2].length===1?'0':'')+m2[2]+'-'+(m2[1].length===1?'0':'')+m2[1];
-  return d;
-}
-
-function getFiltered(){
-  var from=document.getElementById('fFrom').value,to=document.getElementById('fTo').value;
-  var stat=document.getElementById('fStatus').value,cat=document.getElementById('fCat').value;
-  var ent=document.getElementById('fEnt').value,csm=document.getElementById('fCsm').value;
-  var q=document.getElementById('fSearch').value.toLowerCase();
-  return tickets.filter(function(t){
-    if(from&&t.date&&normalizeDate(t.date)<from)return false;
-    if(to&&t.date&&normalizeDate(t.date)>to)return false;
-    if(stat&&t.stat!==stat)return false;
-    if(cat&&t.cat!==cat)return false;
-    if(ent&&t.ent!==ent)return false;
-    if(csm&&t.csm!==csm)return false;
-    if(q&&JSON.stringify(t._raw||t).toLowerCase().indexOf(q)===-1)return false;
-    return true;
-  });
-}
-
-function resetF(){
-  ['fFrom','fTo','fSearch'].forEach(function(id){document.getElementById(id).value='';});
-  ['fStatus','fCat','fEnt','fCsm'].forEach(function(id){document.getElementById(id).value='';});
-  render();
-}
-
-function switchTab(name,el){
-  curTab=name;
-  document.querySelectorAll('.tb').forEach(function(t){t.classList.remove('on');});
-  el.classList.add('on');
-  ['analytics','daily','enterprise','rooftop','table'].forEach(function(t){
-    document.getElementById('tab-'+t).style.display=t===name?'':'none';
-  });
-  render();
-}
-
-function mkChart(id,type,labels,data,colors,opts){
-  if(charts[id])charts[id].destroy();
-  var ctx=document.getElementById(id);if(!ctx)return;
-  var ds={
-    data:data,backgroundColor:colors,
-    borderColor:type==='line'?colors[0]:colors,
-    borderWidth:type==='line'?2.5:1,
-    fill:false,tension:0.4,
-    pointBackgroundColor:type==='line'?colors[0]:undefined,
-    pointRadius:type==='line'?3:0,
-    pointHoverRadius:type==='line'?5:0,
-    borderRadius:type==='bar'?6:0,
-    borderSkipped:false
-  };
-  charts[id]=new Chart(ctx.getContext('2d'),{
-    type:type,
-    data:{labels:labels,datasets:[ds]},
-    options:Object.assign({
-      responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{backgroundColor:'#101828',titleColor:'#f1f5f9',bodyColor:'#94a3b8',borderColor:'#1c2d44',borderWidth:1,padding:12,cornerRadius:8}
-      },
-      scales:type!=='doughnut'?{
-        x:{ticks:{color:'#64748b',font:{size:10},maxRotation:40},grid:{color:'rgba(255,255,255,0.03)'},border:{color:'transparent'}},
-        y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'transparent'}}
-      }:{}
-    },opts||{})
-  });
-}
-
-function pBar(label,count,total,color,extra){
-  var pct=total?Math.round(count/total*100):0;
-  return'<div class="pbar-row"><div class="pbar-label"><span class="pbar-name">'+label+(extra?'<span style="color:var(--muted);margin-left:6px;font-size:10px">'+extra+'</span>':'')+'</span><span class="pbar-val">'+count.toLocaleString()+' <span style="color:var(--muted);font-size:10px">('+pct+'%)</span></span></div><div class="pbar-track"><div class="pbar-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div>';
-}
-
-function pillCls(s){
-  if(isClosed(s))return'pill p-closed';
-  if(isEscalated(s))return'pill p-escalated';
-  if(isPending(s))return'pill p-pending';
-  if(isInProgress(s))return'pill p-inprogress';
-  if(isDraft(s))return'pill p-indraft';
-  if(isOpen(s))return'pill p-open';
-  return'pill';
-}
-
-function render(){
-  var data=getFiltered();
-  var todayD=data.filter(function(t){return normalizeDate(t.date)===TODAY;});
-  var statMap={},catMap={},csmMap={},doneMap={},entMap={},roofMap={};
-  var vins=new Set(),roofs=new Set(),entSet=new Set(),todayVins=new Set();
-  var seenTnos=new Set();
-
-  data.forEach(function(t,idx){
-    if(t.vin)vins.add(t.vin);
-    if(t.roof)roofs.add(t.roof);
-    if(t.ent)entSet.add(t.ent);
-    var s=t.stat||'Unknown';
-    // Use ticket number for dedup — fall back to row index only if truly missing
-    var tno=t.tno||'';
-    var tkey=tno!==''?('T_'+tno):('__r'+idx);
-    var isNew=!seenTnos.has(tkey);
-    if(isNew){
-      seenTnos.add(tkey);
-      statMap[s]=(statMap[s]||0)+1;
-      if(t.cat)catMap[t.cat]=(catMap[t.cat]||0)+1;
-      if(t.csm)csmMap[t.csm]=(csmMap[t.csm]||0)+1;
-      if(t.done)doneMap[t.done]=(doneMap[t.done]||0)+1;
-    }
-    var eid=t.ent||'Unknown';
-    if(!entMap[eid])entMap[eid]={id:t.eid||'',tickets:new Set(),vins:new Set(),open:0,pending:0,inprog:0,closed:0,esc:0,draft:0};
-    entMap[eid].tickets.add(tkey);
-    if(t.vin)entMap[eid].vins.add(t.vin);
-    if(isNew){
-      if(isClosed(s))entMap[eid].closed++;
-      else if(isEscalated(s))entMap[eid].esc++;
-      else if(isPending(s))entMap[eid].pending++;
-      else if(isInProgress(s))entMap[eid].inprog++;
-      else if(isDraft(s))entMap[eid].draft++;
-      else entMap[eid].open++;
-    }
-    var rid=t.roof||'Unknown';
-    if(!roofMap[rid])roofMap[rid]={id:t.rid||'',ent:t.ent||'',tickets:new Set(),vins:new Set(),open:0,closed:0,esc:0};
-    roofMap[rid].tickets.add(tkey);
-    if(t.vin)roofMap[rid].vins.add(t.vin);
-    if(isNew){
-      if(isClosed(s))roofMap[rid].closed++;
-      else if(isEscalated(s))roofMap[rid].esc++;
-      else roofMap[rid].open++;
-    }
-  });
-  todayD.forEach(function(t){if(t.vin)todayVins.add(t.vin);});
-
-  var total=seenTnos.size;
-  var todayTnos=new Set(todayD.map(function(t){return t.tno?'T_'+t.tno.trim():'r';}));
-  var totalClosed=Object.keys(statMap).filter(isClosed).reduce(function(a,k){return a+(statMap[k]||0);},0);
-  var totalEsc=Object.keys(statMap).filter(isEscalated).reduce(function(a,k){return a+(statMap[k]||0);},0);
-  var totalActive=total-totalClosed;
-
-  document.getElementById('k-total').textContent=total.toLocaleString();
-  document.getElementById('k-total-s').textContent=data.length.toLocaleString()+' total rows ('+vins.size.toLocaleString()+' VINs)';
-  document.getElementById('k-vins').textContent=vins.size.toLocaleString();
-  document.getElementById('k-closed').textContent=totalClosed.toLocaleString();
-  document.getElementById('k-closed-s').textContent=total?Math.round(totalClosed/total*100)+'% resolution rate':'—';
-  document.getElementById('k-open').textContent=totalActive.toLocaleString();
-  document.getElementById('k-open-s').textContent=total?Math.round(totalActive/total*100)+'% still active':'—';
-  document.getElementById('k-esc').textContent=totalEsc.toLocaleString();
-  document.getElementById('k-ent').textContent=entSet.size.toLocaleString();
-  document.getElementById('k-roof').textContent=roofs.size.toLocaleString();
-  document.getElementById('k-today').textContent=todayTnos.size.toLocaleString();
-  document.getElementById('k-today-s').textContent=todayVins.size+' VINs · '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
-
-  if(curTab==='analytics'){
-    var tL=[],tV=[];
-    for(var i=29;i>=0;i--){
-      var dd=new Date(Date.now()-i*86400000),ds=dd.toISOString().split('T')[0];
-      tL.push(ds.slice(5));
-      tV.push(data.filter(function(t){return normalizeDate(t.date)===ds;}).length);
-    }
-    var tMax=Math.max.apply(null,tV)||1;
-    document.getElementById('trendBadge').textContent='Peak: '+tMax+'/day';
-    mkChart('cTrend','line',tL,tV,['#3b82f6'],{});
-    var sL=Object.keys(statMap),sV=Object.values(statMap),sC=sL.map(statusColor);
-    mkChart('cStatus','doughnut',sL,sV,sC,{cutout:'65%'});
-    document.getElementById('legStatus').innerHTML=sL.map(function(l,i){return'<span class="legend-item"><span class="legend-dot" style="background:'+sC[i]+'"></span>'+l+' ('+sV[i].toLocaleString()+')</span>';}).join('');
-    var tot2=total||1;
-    document.getElementById('statusBars').innerHTML=Object.entries(statMap).sort(function(a,b){return b[1]-a[1];}).map(function(e){return pBar(e[0],e[1],tot2,statusColor(e[0]));}).join('');
-    var cK=Object.keys(catMap).sort(function(a,b){return catMap[b]-catMap[a];}),cV=cK.map(function(k){return catMap[k];});
-    mkChart('cCat','bar',cK,cV,cK.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length];}),{indexAxis:'y'});
-    var cArr=Object.entries(csmMap).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
-    var cMax=cArr.length?cArr[0][1]:1;
-    document.getElementById('csmBars').innerHTML=cArr.length?cArr.map(function(e){return pBar(e[0],e[1],cMax,'var(--blue)');}).join(''):'<div class="empty-row">No CSM data</div>';
-    var dArr=Object.entries(doneMap).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
-    var dMax=dArr.length?dArr[0][1]:1;
-    document.getElementById('doneBars').innerHTML=dArr.length?dArr.map(function(e){return pBar(e[0],e[1],dMax,'var(--purple)');}).join(''):'<div class="empty-row">No data</div>';
-    var eRows=Object.entries(entMap).sort(function(a,b){return b[1].tickets.size-a[1].tickets.size;});
-    document.getElementById('entBadge').textContent=eRows.length+' enterprises';
-    document.getElementById('entTbl').innerHTML=eRows.slice(0,10).map(function(e){
-      var res=e[1].closed,pct=e[1].tickets.size?Math.round(res/e[1].tickets.size*100):0;
-      var bar='<div style="display:flex;align-items:center;gap:6px"><div style="width:60px;height:5px;background:var(--s3);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:var(--green);border-radius:3px"></div></div><span style="font-size:11px;color:var(--green);font-weight:700">'+pct+'%</span></div>';
-      return'<tr><td><strong style="color:var(--text)">'+e[0]+'</strong><br><span style="color:var(--muted);font-size:11px">'+e[1].id+'</span></td><td><strong>'+e[1].tickets.size.toLocaleString()+'</strong></td><td>'+e[1].vins.size.toLocaleString()+'</td><td style="color:var(--amber)">'+e[1].open+'</td><td style="color:var(--green)">'+e[1].closed+'</td><td style="color:var(--rose)">'+e[1].esc+'</td><td>'+bar+'</td></tr>';
-    }).join('');
-    var eTop=eRows.slice(0,8);
-    mkChart('cEnt','doughnut',eTop.map(function(e){return e[0];}),eTop.map(function(e){return e[1].tickets.size;}),eTop.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length];}),{cutout:'55%'});
-  }
-
-  if(curTab==='daily'){
-    var tv=new Set(todayD.map(function(t){return t.vin;}).filter(Boolean));
-    document.getElementById('d-t').textContent=todayTnos.size;
-    document.getElementById('d-v').textContent=tv.size;
-    document.getElementById('d-c').textContent=todayD.filter(function(t){return isClosed(t.stat);}).length;
-    document.getElementById('d-o').textContent=todayD.filter(function(t){return !isClosed(t.stat);}).length;
-    document.getElementById('d-badge').textContent=todayD.length+' rows';
-    document.getElementById('dailyHead').innerHTML=headers.map(function(h){return'<th>'+h+'</th>';}).join('');
-    document.getElementById('dailyTbl').innerHTML=todayD.length?todayD.map(function(t){
-      return'<tr>'+headers.map(function(h,ci){
-        var v=(t._raw&&t._raw[ci]!==undefined)?t._raw[ci]:'—';
-        var lc=h.toLowerCase().trim();
-        if((lc==='status'||lc==='website status')&&v)return'<td><span class="'+pillCls(v)+'">'+v+'</span></td>';
-        return'<td>'+v+'</td>';
-      }).join('')+'</tr>';
-    }).join(''):'<tr><td colspan="'+Math.max(headers.length,1)+'" class="empty-row">No tickets for today ('+TODAY+')</td></tr>';
-    var dsL=Object.keys(statMap),dsV=dsL.map(function(k){return statMap[k];}),dsC=dsL.map(statusColor);
-    if(dsL.length)mkChart('cDailyStatus','doughnut',dsL,dsV,dsC,{cutout:'60%'});
-    document.getElementById('legDailyStatus').innerHTML=dsL.map(function(l,i){return'<span class="legend-item"><span class="legend-dot" style="background:'+dsC[i]+'"></span>'+l+' ('+dsV[i]+')</span>';}).join('');
-  }
-
-  if(curTab==='enterprise'){
-    var eRows2=Object.entries(entMap).sort(function(a,b){return b[1].tickets.size-a[1].tickets.size;});
-    document.getElementById('entBadge2').textContent=eRows2.length+' enterprises';
-    var eL=eRows2.slice(0,12).map(function(e){return e[0];}),eV2=eRows2.slice(0,12).map(function(e){return e[1].tickets.size;});
-    mkChart('cEntBar','bar',eL,eV2,eL.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length];}),{indexAxis:'y'});
-    var evMax=eRows2.length?Math.max.apply(null,eRows2.map(function(e){return e[1].vins.size;})):1;
-    document.getElementById('entVinBars').innerHTML=eRows2.slice(0,10).map(function(e){return pBar(e[0],e[1].vins.size,evMax,'var(--cyan)',e[1].tickets.size+' tickets');}).join('');
-    document.getElementById('entTbl2').innerHTML=eRows2.map(function(e,i){
-      var res=e[1].closed,pct=e[1].tickets.size?Math.round(res/e[1].tickets.size*100):0;
-      return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td><strong>'+e[0]+'</strong></td><td style="color:var(--muted)">'+e[1].id+'</td><td><strong>'+e[1].tickets.size.toLocaleString()+'</strong></td><td>'+e[1].vins.size+'</td><td style="color:var(--amber)">'+e[1].open+'</td><td style="color:var(--blue)">'+e[1].pending+'</td><td style="color:var(--cyan)">'+e[1].inprog+'</td><td style="color:var(--green)">'+e[1].closed+'</td><td style="color:var(--rose)">'+e[1].esc+'</td><td><span style="color:var(--green);font-weight:700">'+pct+'%</span></td></tr>';
-    }).join('');
-  }
-
-  if(curTab==='rooftop'){
-    var rRows=Object.entries(roofMap).sort(function(a,b){return b[1].tickets.size-a[1].tickets.size;});
-    document.getElementById('roofBadge').textContent=rRows.length+' rooftops';
-    var rL=rRows.slice(0,15).map(function(r){return r[0];}),rV=rRows.slice(0,15).map(function(r){return r[1].tickets.size;});
-    mkChart('cRoofBar','bar',rL,rV,rL.map(function(_,i){return CAT_COLORS[i%CAT_COLORS.length];}),{indexAxis:'y'});
-    var rrMax=rRows.length?rRows[0][1].tickets.size:1;
-    document.getElementById('roofStatBars').innerHTML=rRows.slice(0,10).map(function(r){
-      var pct=r[1].tickets.size?Math.round(r[1].closed/r[1].tickets.size*100):0;
-      return pBar(r[0],r[1].tickets.size,rrMax,'var(--cyan)','Resolved: '+pct+'%');
-    }).join('');
-    document.getElementById('roofTbl').innerHTML=rRows.map(function(r,i){
-      return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td><strong>'+r[0]+'</strong></td><td style="color:var(--muted)">'+r[1].id+'</td><td>'+r[1].ent+'</td><td><strong>'+r[1].tickets.size+'</strong></td><td>'+r[1].vins.size+'</td><td style="color:var(--amber)">'+r[1].open+'</td><td style="color:var(--green)">'+r[1].closed+'</td><td style="color:var(--rose)">'+r[1].esc+'</td></tr>';
-    }).join('');
-  }
-
-  if(curTab==='table'){
-    document.getElementById('allBadge').textContent=data.length.toLocaleString()+' rows';
-    document.getElementById('allHead').innerHTML=headers.map(function(h){return'<th>'+h+'</th>';}).join('');
-    document.getElementById('allTbl').innerHTML=data.length?data.map(function(t){
-      return'<tr>'+headers.map(function(h,ci){
-        var v=(t._raw&&t._raw[ci]!==undefined)?t._raw[ci]:'—';
-        var lc=h.toLowerCase().trim();
-        if((lc==='status'||lc==='website status')&&v)return'<td><span class="'+pillCls(v)+'">'+v+'</span></td>';
-        return'<td>'+v+'</td>';
-      }).join('')+'</tr>';
-    }).join(''):'<tr><td colspan="'+Math.max(headers.length,1)+'" class="empty-row">No data — paste CSV to load</td></tr>';
-  }
-}
-
-function exportCSV(){
-  var data=getFiltered();
-  var rows=[headers.join(',')];
-  data.forEach(function(t){
-    rows.push((t._raw||[]).map(function(c){return'"'+String(c||'').replace(/"/g,'""')+'"';}).join(','));
-  });
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
-  a.download='website_review_export.csv';
-  a.click();
-}
-
-refreshData();
-setInterval(refreshData, 5*60*1000); // Auto-refresh every 5 minutes
+buildDate();buildEnt(ENTS);buildCSM();buildStatus();buildEntOverview();
 </script>
-
 </body>
 </html>
